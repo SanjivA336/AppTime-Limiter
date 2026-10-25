@@ -1,0 +1,44 @@
+name: Release
+
+# Push a tag like v0.1.0 and this builds a zip and creates a DRAFT release for you to review and publish.
+#   git tag v0.1.0
+#   git push origin v0.1.0
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test
+        run: dotnet test --configuration Release
+
+      - name: Publish
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          dotnet publish src/AppTimeLimiter.App --configuration Release --runtime win-x64 `
+            --self-contained false --output publish -p:Version=$version
+          Compress-Archive -Path publish/* -DestinationPath "AppTimeLimiter-${{ github.ref_name }}-win-x64.zip"
+
+      - name: Create draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $flags = @('--draft', '--generate-notes', '--title', $tag)
+          # Anything below 1.0 is marked as a pre-release.
+          if ($tag -like 'v0.*') { $flags += '--prerelease' }
+          gh release create $tag "AppTimeLimiter-$tag-win-x64.zip" @flags

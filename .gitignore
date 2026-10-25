@@ -9,7 +9,12 @@ artifacts/
 # --- Visual Studio / Rider / VS Code ---
 .vs/
 .idea/
-.vscode/
+# Keep the shared VS Code config (launch/tasks/settings/extensions); ignore anything personal in the folder.
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/extensions.json
 *.user
 *.suo
 *.userosscache
@@ -36,6 +41,10 @@ coverage/
 *.key
 *.pfx
 secrets.json
+
+# --- Local dev data and publish output ---
+.dev-data/
+publish/
 
 # --- Personal tooling (machine-specific, not part of the project) ---
 .claude/settings.local.json

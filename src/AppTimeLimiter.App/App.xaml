@@ -1,0 +1,224 @@
+<Application x:Class="AppTimeLimiter.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Dark" />
+                <ui:ControlsDictionary />
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
+            <!-- A panel that groups related settings. -->
+            <Style x:Key="Card" TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="Margin" Value="0,0,0,12" />
+            </Style>
+
+            <Style x:Key="SectionTitle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Setter Property="Margin" Value="0,0,0,2" />
+            </Style>
+
+            <Style x:Key="Hint" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Margin" Value="0,0,0,10" />
+            </Style>
+
+            <!--
+                A color choice. Exactly one is selected, and the selected one is easy to spot: it gets a bold
+                outer ring and a checkmark (the code picks a checkmark color that shows up on that swatch).
+            -->
+            <Style x:Key="SwatchRadio" TargetType="RadioButton">
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Width" Value="36" />
+                <Setter Property="Height" Value="36" />
+                <Setter Property="Margin" Value="0,0,4,0" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Grid Background="Transparent">
+                                <Ellipse x:Name="Ring" Stroke="{DynamicResource TextFillColorPrimaryBrush}"
+                                         StrokeThickness="2.5" Visibility="Collapsed" />
+                                <Ellipse x:Name="Dot" Margin="6" Fill="{TemplateBinding Background}"
+                                         Stroke="{DynamicResource ControlStrokeColorDefaultBrush}" StrokeThickness="1" />
+                                <ui:SymbolIcon x:Name="Check" Symbol="Checkmark16" FontSize="14"
+                                               Foreground="{TemplateBinding Foreground}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Visibility="Collapsed" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Ring" Property="Visibility" Value="Visible" />
+                                    <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Dot" Property="Margin" Value="4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--
+                A thin bar for a group's card. The filled part is colored by the group's state (Foreground) and its
+                length is Value (0 to 1). This style is made for the group card: it reads two flags from the group
+                the card shows (the bar's DataContext):
+                    IsRunning        a soft glow in the bar's color appears around the bar, whatever the state.
+                    IsBudgetDraining slightly darker diagonal stripes drift slowly from right to left across the
+                                     filled part, and the glow pulses, only while the budget is actually being spent.
+            -->
+            <Style x:Key="StatusBar" TargetType="ProgressBar">
+                <Setter Property="Height" Value="6" />
+                <Setter Property="Minimum" Value="0" />
+                <Setter Property="Maximum" Value="1" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ProgressBar">
+                            <Grid>
+                                <!--
+                                    The glow, built from three blurred copies of the bar stacked on top of each other, from
+                                    widest to narrowest. Together they fade out smoothly, and they make the light look like
+                                    it comes from the bar: the narrow layer closest to the bar is nearly white, the middle
+                                    one is the bar's color, and the widest one is a faint haze of that color.
+                                    The layers reach a little further out than the gap (see GapMask below) so the near-white
+                                    edge starts just outside it.
+                                -->
+                                <Grid x:Name="Glow" Opacity="0.9" IsHitTestVisible="False"
+                                      Visibility="{Binding DataContext.IsRunning, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BoolToVisibility}}">
+                                    <Border Margin="-9" CornerRadius="12" Background="{TemplateBinding Foreground}" Opacity="0.28">
+                                        <Border.Effect>
+                                            <BlurEffect Radius="11" KernelType="Gaussian" />
+                                        </Border.Effect>
+                                    </Border>
+                                    <Border Margin="-6.5" CornerRadius="9.5" Background="{TemplateBinding Foreground}" Opacity="0.6">
+                                        <Border.Effect>
+                                            <BlurEffect Radius="6" KernelType="Gaussian" />
+                                        </Border.Effect>
+                                    </Border>
+                                    <Border Margin="-5" CornerRadius="8" Background="White" Opacity="0.65">
+                                        <Border.Effect>
+                                            <BlurEffect Radius="3.5" KernelType="Gaussian" />
+                                        </Border.Effect>
+                                    </Border>
+                                </Grid>
+
+                                <!--
+                                    The tiny gap between the bar and its glow: a thin ring of the same dark color as the track,
+                                    drawn over the glow and under the bar. It is separate from the glow so that the glow's
+                                    pulsing doesn't fade it. Margin is how wide the gap is.
+                                -->
+                                <Border x:Name="GapMask" Margin="-2" CornerRadius="5"
+                                        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                                        Visibility="{Binding DataContext.IsRunning, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BoolToVisibility}}" />
+
+                                <!-- A solid base under the track, so the glow shows only around the bar and not through its empty part. -->
+                                <Border x:Name="TrackBase" CornerRadius="3"
+                                        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}" />
+                                <Border x:Name="PART_Track" CornerRadius="3"
+                                        Background="{DynamicResource ControlFillColorTertiaryBrush}" />
+                                <Border x:Name="PART_Indicator" CornerRadius="3" HorizontalAlignment="Left"
+                                        Background="{TemplateBinding Foreground}">
+                                    <Rectangle x:Name="Stripes" RadiusX="3" RadiusY="3"
+                                               Visibility="{Binding DataContext.IsBudgetDraining, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BoolToVisibility}}">
+                                        <Rectangle.Fill>
+                                            <!-- A 16 by 16 tile holding one diagonal band; it repeats seamlessly in every direction. -->
+                                            <DrawingBrush TileMode="Tile" ViewboxUnits="Absolute" Viewbox="0,0,16,16"
+                                                          ViewportUnits="Absolute" Viewport="0,0,16,16">
+                                                <DrawingBrush.Transform>
+                                                    <TranslateTransform x:Name="StripeShift" X="0" />
+                                                </DrawingBrush.Transform>
+                                                <DrawingBrush.Drawing>
+                                                    <GeometryDrawing Brush="#30000000">
+                                                        <GeometryDrawing.Geometry>
+                                                            <PathGeometry Figures="M0,8 L8,0 L16,0 L0,16 Z M8,16 L16,16 L16,8 Z" />
+                                                        </GeometryDrawing.Geometry>
+                                                    </GeometryDrawing>
+                                                </DrawingBrush.Drawing>
+                                            </DrawingBrush>
+                                        </Rectangle.Fill>
+                                    </Rectangle>
+                                </Border>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <!-- Only animate while the stripes are visible (the budget is draining), so a quiet group costs nothing. -->
+                                <Trigger SourceName="Stripes" Property="IsVisible" Value="True">
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard x:Name="DriftLeft">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="StripeShift"
+                                                                 Storyboard.TargetProperty="X"
+                                                                 From="0" To="-16" Duration="0:0:2"
+                                                                 RepeatBehavior="Forever" />
+                                                <!-- The glow breathes in and out while the budget drains (it is steady otherwise). -->
+                                                <DoubleAnimation Storyboard.TargetName="Glow"
+                                                                 Storyboard.TargetProperty="Opacity"
+                                                                 From="0.35" To="1.0" Duration="0:0:1.6"
+                                                                 AutoReverse="True" RepeatBehavior="Forever">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <SineEase EasingMode="EaseInOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <StopStoryboard BeginStoryboardName="DriftLeft" />
+                                    </Trigger.ExitActions>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- A whole card that can be clicked, with hover, press and keyboard-focus looks. -->
+            <Style x:Key="CardButton" TargetType="Button">
+                <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="18,14" />
+                <Setter Property="Margin" Value="0,0,0,10" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Surface" CornerRadius="8"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ControlFillColorTertiaryBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -1,0 +1,158 @@
+<Page x:Class="AppTimeLimiter.App.Views.LimitsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:vm="clr-namespace:AppTimeLimiter.App.ViewModels"
+      Title="Limits">
+    <Grid Margin="24,8,24,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Title, the Windows-startup switch, and the button to add a group -->
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Limits" FontSize="28" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                <TextBlock Text="Click a group to change its apps, schedule and warnings."
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,2,0,0" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <ui:ToggleSwitch Content="Start with Windows" IsChecked="{Binding StartWithWindows, Mode=TwoWay}"
+                                 Margin="0,0,20,0" />
+                <ui:Button Content="Add group" Icon="{ui:SymbolIcon Add24}" Appearance="Primary"
+                           Click="AddGroup_Click" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Messages, such as a settings problem -->
+        <ui:InfoBar Grid.Row="1" Severity="Warning" IsClosable="True" Title="Heads up"
+                    Message="{Binding Notice}"
+                    IsOpen="{Binding IsNoticeOpen, Mode=TwoWay}"
+                    Margin="0,0,0,10" />
+
+        <!-- Nothing yet -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" VerticalAlignment="Top"
+                Visibility="{Binding HasNoGroups, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitle}" Text="No groups yet" />
+                <TextBlock Style="{StaticResource Hint}" Margin="0"
+                           Text="A group is a set of apps that share one schedule, such as “Games”. Add a group, put the apps in it, then paint when they're free, limited, or blocked. Until you add one, nothing is limited." />
+            </StackPanel>
+        </Border>
+
+        <!-- One card per group -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding HasGroups, Converter={StaticResource BoolToVisibility}}">
+            <ItemsControl ItemsSource="{Binding Groups}" Margin="0,0,12,0">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:GroupViewModel}">
+                        <Button Style="{StaticResource CardButton}" Click="Card_Click">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="390" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <!-- The group's color -->
+                                <Border Grid.Column="0" Width="6" CornerRadius="3" Margin="0,0,16,0"
+                                        Background="{Binding ColorBrush}" />
+
+                                <!-- Name and status -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                                    <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    <!-- The status wraps onto a second line if it is long ("Blocked until ... · budget used up"). -->
+                                    <Grid Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Width="10" Height="10" CornerRadius="5" Margin="0,4,7,0"
+                                                VerticalAlignment="Top" Background="{Binding StatusBrush}" />
+                                        <TextBlock Grid.Column="1" TextWrapping="Wrap" FontSize="14"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                                            <Run Text="{Binding StatusText, Mode=OneWay}" /><Run Text="{Binding RunningSuffix, Mode=OneWay}"
+                                                 FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                        </TextBlock>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- The first three apps (A to Z), then "+N" for the rest -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <ItemsControl ItemsSource="{Binding AppChips}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border CornerRadius="6" Padding="8,5" Margin="0,0,8,0"
+                                                        Background="{DynamicResource ControlFillColorDefaultBrush}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Grid Width="18" Height="18" Margin="0,0,7,0">
+                                                            <Image Source="{Binding Icon}" Visibility="{Binding IconVisibility}"
+                                                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                                                            <Border CornerRadius="9" Visibility="{Binding InitialVisibility}"
+                                                                    Background="{DynamicResource ControlStrongFillColorDefaultBrush}">
+                                                                <TextBlock Text="{Binding Initial}" FontSize="10" FontWeight="SemiBold"
+                                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                            </Border>
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <TextBlock Text="{Binding MoreAppsText}" FontWeight="SemiBold" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Visibility="{Binding HasMoreApps, Converter={StaticResource BoolToVisibility}}" />
+
+                                    <TextBlock Text="No apps yet" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                               Visibility="{Binding HasNoApps, Converter={StaticResource BoolToVisibility}}" />
+                                </StackPanel>
+
+                                <ui:SymbolIcon Grid.Column="3" Symbol="ChevronRight24" VerticalAlignment="Center" Margin="12,0,0,0"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                                <!--
+                                    Only for groups that have Limited time somewhere in the week. The bar's color is the group's
+                                    state now (green, blue, red). It only shrinks while Limited, as the day's budget is spent.
+                                    A glow surrounds it while one of the group's apps is running, and darker stripes drift across
+                                    it only while that running app is actually using up the budget.
+                                -->
+                                <ProgressBar Grid.Row="1" Grid.ColumnSpan="4" Margin="0,14,0,0"
+                                             Style="{StaticResource StatusBar}"
+                                             Value="{Binding DisplayedFraction, Mode=OneWay}"
+                                             Foreground="{Binding StatusBrush}"
+                                             ToolTip="{Binding BudgetBarTooltip}"
+                                             Visibility="{Binding HasLimitedTime, Converter={StaticResource BoolToVisibility}}" />
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</Page>

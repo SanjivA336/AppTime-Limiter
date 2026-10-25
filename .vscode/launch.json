@@ -1,0 +1,41 @@
+{
+  // Press F5 to build and launch the app under the debugger.
+  // Pick a profile from the Run and Debug dropdown. All profiles pass --no-autostart so a debug build
+  // never registers itself to start with Windows.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "AppTime Limiter (dev data)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/AppTimeLimiter.App/bin/Debug/net10.0-windows/AppTimeLimiter.exe",
+      "args": ["--data-dir", "${workspaceFolder}/.dev-data", "--no-autostart"],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "AppTime Limiter (real data)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/AppTimeLimiter.App/bin/Debug/net10.0-windows/AppTimeLimiter.exe",
+      "args": ["--no-autostart"],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Screenshot main window (dev data)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/AppTimeLimiter.App/bin/Debug/net10.0-windows/AppTimeLimiter.exe",
+      "args": ["--data-dir", "${workspaceFolder}/.dev-data", "--screenshot", "${workspaceFolder}/.dev-data/screenshot.png"],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    }
+  ]
+}

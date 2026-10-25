@@ -1,0 +1,32 @@
+name: Bug report
+description: Something isn't working the way it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you see instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can I reproduce it?
+      placeholder: "1. Add a group…\n2. Paint Monday 9pm–10pm as Blocked…\n3. …"
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: v0
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 23H2
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Anything useful from `%LOCALAPPDATA%\AppTimeLimiter\app.log`. Please remove anything private.
+      render: text

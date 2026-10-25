@@ -1,0 +1,51 @@
+{
+  // Run with Terminal > Run Task, or Ctrl+Shift+B for the default build.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/AppTimeLimiter.sln", "--nologo", "-v", "q"],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "test",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test", "${workspaceFolder}/AppTimeLimiter.sln", "--nologo"],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "test", "isDefault": true }
+    },
+    {
+      "label": "run (dev data)",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run", "--project", "${workspaceFolder}/src/AppTimeLimiter.App",
+        "--", "--data-dir", "${workspaceFolder}/.dev-data", "--no-autostart"
+      ],
+      "problemMatcher": "$msCompile",
+      "isBackground": true
+    },
+    {
+      "label": "publish (win-x64)",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "publish", "${workspaceFolder}/src/AppTimeLimiter.App",
+        "-c", "Release", "-r", "win-x64", "--self-contained", "false",
+        "-o", "${workspaceFolder}/publish"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "clean",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["clean", "${workspaceFolder}/AppTimeLimiter.sln", "--nologo", "-v", "q"],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

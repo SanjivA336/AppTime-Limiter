@@ -1,0 +1,14 @@
+{
+  "dotnet.defaultSolution": "AppTimeLimiter.sln",
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true
+  },
+  "files.associations": {
+    "*.xaml": "xml"
+  },
+  "editor.rulers": [120],
+  "[csharp]": {
+    "editor.defaultFormatter": "ms-dotnettools.csharp"
+  }
+}
