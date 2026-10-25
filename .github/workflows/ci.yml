@@ -47,12 +47,12 @@ jobs:
 
       - name: Publish a build you can try
         run: >
-          dotnet publish src/AppTimeLimiter.App --configuration Release
+          dotnet publish src/HardCap.App --configuration Release
           --runtime win-x64 --self-contained false --output publish
 
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: AppTimeLimiter-win-x64
+          name: HardCap-win-x64
           path: publish
           retention-days: 14

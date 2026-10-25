@@ -1,0 +1,111 @@
+<Page x:Class="HardCap.App.Views.SettingsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:controls="clr-namespace:HardCap.App.Controls"
+      Title="Settings">
+    <Grid Margin="24,8,24,16">
+
+        <!-- While a wait applies, the page shows only this countdown -->
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Visibility="{Binding IsLocked, Converter={StaticResource BoolToVisibility}}">
+            <controls:WaitCountdownView DataContext="{Binding Countdown}"
+                                        Title="Settings are locked"
+                                        Subtitle="You can see and change them when the timer reaches zero. The timer only runs while this window is in front." />
+            <ui:Button Content="Back to Limits" HorizontalAlignment="Center" Margin="0,36,0,0" MinWidth="140"
+                       Click="Cancel_Click" />
+        </StackPanel>
+
+        <Grid Visibility="{Binding IsUnlocked, Converter={StaticResource BoolToVisibility}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                <TextBlock Text="Settings" FontSize="28" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                <TextBlock Text="These apply to the whole app. They take effect straight away."
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,2,0,0" />
+            </StackPanel>
+
+            <ui:InfoBar Grid.Row="1" Severity="Informational" IsClosable="True" Title="Done"
+                        Message="{Binding Message}"
+                        IsOpen="{Binding IsMessageOpen, Mode=TwoWay}"
+                        Margin="0,0,0,10" />
+
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="0,0,12,0">
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="General" />
+                            <ui:ToggleSwitch Content="Start with Windows" IsChecked="{Binding StartWithWindows, Mode=TwoWay}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="When a new day starts" />
+                            <TextBlock Style="{StaticResource Hint}"
+                                       Text="Every group's daily budget refills at this time. If you usually stay up past midnight, pick when you normally go to sleep, such as 4:00 AM, and late-night play counts toward the day before." />
+                            <ComboBox ItemsSource="{Binding TimeChoices}" SelectedItem="{Binding SelectedReset, Mode=TwoWay}"
+                                      Width="150" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding ResetSummary}" Margin="0,8,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Waiting" />
+                            <TextBlock Style="{StaticResource Hint}"
+                                       Text="Make yourself wait before you can open a group, these settings, or quit HardCap. Changing the rules in a weak moment gets harder. The countdown only runs while the window is in front. Quitting also waits as long as your longest group lock." />
+                            <StackPanel Orientation="Horizontal">
+                                <ui:NumberBox Value="{Binding Wait.Minutes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                              Minimum="-1" Maximum="9" SmallChange="1" LargeChange="1"
+                                              MaxDecimalPlaces="0" Width="150" ClearButtonEnabled="False" />
+                                <TextBlock Text="min" VerticalAlignment="Center" Margin="8,0,18,0"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:NumberBox Value="{Binding Wait.Seconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                              Minimum="-300" Maximum="900" SmallChange="5" LargeChange="15"
+                                              MaxDecimalPlaces="0" Width="150" ClearButtonEnabled="False" />
+                                <TextBlock Text="sec" VerticalAlignment="Center" Margin="8,0,18,0"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{Binding Wait.Summary}" VerticalAlignment="Center" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            </StackPanel>
+
+                            <ui:ToggleSwitch Content="Open hours: no waiting at these times" Margin="0,16,0,0"
+                                             IsChecked="{Binding OpenHoursEnabled, Mode=TwoWay}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                        Visibility="{Binding OpenHoursEnabled, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="From" VerticalAlignment="Center" Margin="0,0,8,0"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ComboBox ItemsSource="{Binding TimeChoices}" SelectedItem="{Binding OpenHoursStart, Mode=TwoWay}" Width="130" />
+                                <TextBlock Text="to" VerticalAlignment="Center" Margin="8,0"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ComboBox ItemsSource="{Binding TimeChoices}" SelectedItem="{Binding OpenHoursEnd, Mode=TwoWay}" Width="130" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding OpenHoursSummary}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Back up your settings" />
+                            <TextBlock Style="{StaticResource Hint}"
+                                       Text="Export your groups and these settings to a file, or load them back. Importing replaces every group and the settings above, which is why it sits behind the wait like everything else here. Your usage history isn't included." />
+                            <StackPanel Orientation="Horizontal">
+                                <ui:Button Content="Export…" Icon="{ui:SymbolIcon ArrowUpload24}" Click="Export_Click" Margin="0,0,10,0" />
+                                <ui:Button Content="Import…" Icon="{ui:SymbolIcon ArrowDownload24}" Click="Import_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Page>

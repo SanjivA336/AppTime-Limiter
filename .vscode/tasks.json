@@ -6,7 +6,7 @@
       "label": "build",
       "type": "process",
       "command": "dotnet",
-      "args": ["build", "${workspaceFolder}/AppTimeLimiter.sln", "--nologo", "-v", "q"],
+      "args": ["build", "${workspaceFolder}/HardCap.sln", "--nologo", "-v", "q"],
       "problemMatcher": "$msCompile",
       "group": { "kind": "build", "isDefault": true }
     },
@@ -14,7 +14,7 @@
       "label": "test",
       "type": "process",
       "command": "dotnet",
-      "args": ["test", "${workspaceFolder}/AppTimeLimiter.sln", "--nologo"],
+      "args": ["test", "${workspaceFolder}/HardCap.sln", "--nologo"],
       "problemMatcher": "$msCompile",
       "group": { "kind": "test", "isDefault": true }
     },
@@ -23,7 +23,7 @@
       "type": "process",
       "command": "dotnet",
       "args": [
-        "run", "--project", "${workspaceFolder}/src/AppTimeLimiter.App",
+        "run", "--project", "${workspaceFolder}/src/HardCap.App",
         "--", "--data-dir", "${workspaceFolder}/.dev-data", "--no-autostart"
       ],
       "problemMatcher": "$msCompile",
@@ -34,7 +34,7 @@
       "type": "process",
       "command": "dotnet",
       "args": [
-        "publish", "${workspaceFolder}/src/AppTimeLimiter.App",
+        "publish", "${workspaceFolder}/src/HardCap.App",
         "-c", "Release", "-r", "win-x64", "--self-contained", "false",
         "-o", "${workspaceFolder}/publish"
       ],
@@ -44,7 +44,7 @@
       "label": "clean",
       "type": "process",
       "command": "dotnet",
-      "args": ["clean", "${workspaceFolder}/AppTimeLimiter.sln", "--nologo", "-v", "q"],
+      "args": ["clean", "${workspaceFolder}/HardCap.sln", "--nologo", "-v", "q"],
       "problemMatcher": "$msCompile"
     }
   ]

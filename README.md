@@ -1,8 +1,12 @@
-# AppTime Limiter
+<p align="center">
+  <img src="src/HardCap.App/Assets/hardcap.png" alt="HardCap logo" width="128">
+</p>
+
+# HardCap
 
 Set your limits once. Windows keeps you to them.
 
-AppTime Limiter closes the apps you choose when you've hit your daily time or you're outside your allowed hours. It started as a way to keep my own gaming in check, but it works with any app.
+HardCap closes the apps you choose when you've hit your daily time or you're outside your allowed hours. It started as a way to keep my own gaming in check, but it works with any app.
 
 > **Heads up:** this is v0. The core works, but there's no installer yet, so for now you build it yourself (it's two commands, see below).
 
@@ -16,7 +20,7 @@ Put apps in a **group**, like "Games". Each group gets a weekly schedule made of
 | 🟦 **Limited** | Allowed, but the minutes come out of your daily budget. |
 | 🟥 **Blocked** | Not right now. The app is closed as soon as it's spotted. |
 
-Every group has its own **daily budget** for each day of the week: a pot of minutes that only drains during that group's Limited time and refills at midnight. Time spent in one group never uses up another group's budget. When a group's pot is empty, its Limited apps get closed too.
+Every group has its own **daily budget** for each day of the week: a pot of minutes that only drains during that group's Limited time and refills at midnight (or whenever you set a new day to start, see Settings). Time spent in one group never uses up another group's budget. When a group's pot is empty, its Limited apps get closed too.
 
 That lets you do things like *3 hours on weekends between 6 and 11 PM, and 2 hours on weekdays between 8 and 10 PM*. Paint the windows, then set each day's budget in the box above its column. The window says *when* you can play, and the budget says *how long*.
 
@@ -29,12 +33,16 @@ When an app has to go, it's asked nicely first so it can save. If it hasn't clos
 - A card for each group, showing its color, its first few apps (with their icons), and where it stands right now: Limited with the time you have left, or Free or Blocked along with when that ends (like "Blocked until today at 6:00 PM"). If you've used up the day's budget, a Limited group shows as Blocked until the next Free time, or until the budget resets
 - Groups with Limited time get a bar along the bottom of their card: green, blue or red for the state right now, shrinking as the day's budget is spent. It glows while one of the group's apps is running, and drifting stripes and a pulsing glow show when that app is using up your budget
 - Click a card to edit that group, with its name, color, apps and warnings on one tab and its schedule on another. Nothing changes until you press **Save changes**: closing the window cancels, and **Revert** puts everything back without closing
-- An optional lock for each group, from 5 seconds up to 5 minutes. A locked group opens to nothing but a countdown, and you can't see or change anything about it (including deleting it) until it reaches zero. Every time you open it, the wait starts over
+- An optional lock for each group, from 5 seconds up to 5 minutes. A locked group opens to nothing but a countdown, and you can't see or change anything about it (including deleting it) until it reaches zero. Every time you open it, the wait starts over. The countdown only runs while its window is in front, so you can't sit it out in the background
 - Each group has its own budget for each day of the week, set right above that day's column (it appears once the group has some Limited time)
 - A paint-it-yourself weekly grid, plus "copy this day to…" (it copies the day's budget too) so you don't repeat yourself
-- Warnings before time runs out
+- Warnings before time runs out, and an optional per-group **grace period** (up to 5 minutes) to save when a limit starts while an app is running. An app opened during a block is closed straight away
+- **Pause** a group for a while (30 minutes, a few hours, until a day and time, or until you resume it). A paused group is treated as Free. Pausing lives in the group's settings, so it waits behind the lock
+- A **Settings** page (bottom of the sidebar): choose when a new day starts (say 4 AM if you stay up late), set a general wait before opening groups, the settings, or quitting, with optional **open hours** when there is no wait, and export or import your settings
+- Add apps by picking a running one, searching your installed apps, or browsing for the program file. Anti-cheat and helper programs are flagged, because they run all day and would eat your budget
 - A tray icon, so it keeps working after you close the window
 - An option to start with Windows
+- Quitting from the tray waits too: as long as your longest group lock, or the general wait
 - No admin rights, no account, no cloud, no tracking. Everything stays on your PC.
 - Safety rails: it won't let you limit core Windows stuff like `explorer`, so you can't lock yourself out of your own desktop
 
@@ -45,7 +53,7 @@ You'll need Windows 10 or 11 and the [.NET 10 SDK](https://dotnet.microsoft.com/
 ```powershell
 git clone <this repo>
 cd <this repo>
-dotnet run --project src/AppTimeLimiter.App
+dotnet run --project src/HardCap.App
 ```
 
 To run the tests:
@@ -57,7 +65,7 @@ dotnet test
 Want a standalone build?
 
 ```powershell
-dotnet publish src/AppTimeLimiter.App -c Release -r win-x64 --self-contained false -o publish
+dotnet publish src/HardCap.App -c Release -r win-x64 --self-contained false -o publish
 ```
 
 Working in VS Code? Press **F5**. The "dev data" profile keeps its settings in a throwaway `.dev-data` folder and never registers itself to start with Windows, so it can't mess with your real setup. Tasks for build, test and publish are in the Terminal > Run Task menu.
@@ -66,9 +74,9 @@ If you turn on *Start with Windows* and later move the `.exe`, just switch the s
 
 ## Where your stuff lives
 
-Everything is in `%LOCALAPPDATA%\AppTimeLimiter\`:
+Everything is in `%LOCALAPPDATA%\HardCap\`:
 
-- `settings.json`: your groups, with each group's schedule, warnings, lock and daily budgets (older files with one shared budget are upgraded automatically: every group starts with a copy)
+- `settings.json`: your groups, with each group's schedule, warnings, lock, grace period, pause and daily budgets, plus the general settings (new-day time, wait, open hours). Older files are upgraded automatically
 - `usage.json`: how long each group has been used, day by day
 - `app.log`: a small log, handy if something looks off
 
@@ -82,7 +90,7 @@ This is a self-control tool, not a security system.
 
 - It runs as you, so anyone on your Windows account can quit it. It's built to give *you* a bit of friction, not to stop a determined you.
 - It can't close an app that's running as administrator unless it's running as administrator too. If that happens, it'll tell you.
-- The app picker shows what's running right now, so start the app first, then add it.
+- The app picker finds apps from the Start Menu and the registry. Some games (many from Steam or Epic) aren't listed there: use Browse and pick the game's program file. A launcher and the game it starts are usually two different programs, so add the one you actually want to limit (or both).
 - It doesn't block websites. A browser extension like [LeechBlock NG](https://www.proginosko.com/leechblock/) pairs nicely with it.
 
 ## What's done, what's next
@@ -94,12 +102,15 @@ This is a self-control tool, not a security system.
 - [x] Warning notifications
 - [x] Closing apps when time's up
 - [x] Tray icon and start with Windows
+- [x] Browse for or search any app, not only running ones
+- [x] A grace period before an app is closed
+- [x] Pause a group for a while
+- [x] A custom time for the day to reset
+- [x] A settings page with a wait (and open hours) before opening groups, settings, or quitting
+- [x] Export and import your settings
 
 **Planned**
 - [ ] Stats page: see where your time actually goes
-- [ ] Browse for an `.exe` instead of only picking running apps
-- [ ] A short grace period when the budget runs out
-- [ ] A cooling-off delay when you *loosen* a rule (tightening stays instant)
 - [ ] Website blocking through a browser extension
 - [ ] An installer, so you don't need to build it yourself
 
@@ -108,16 +119,16 @@ Got an idea? Open an issue and say hi.
 ## Project layout
 
 ```
-src/AppTimeLimiter.Core      The brains: schedule, budget, warnings, settings (no UI)
-src/AppTimeLimiter.App       The Windows app: window, tray icon, notifications
-tests/AppTimeLimiter.Tests   Tests for the brains
+src/HardCap.Core      The brains: schedule, budget, warnings, settings (no UI)
+src/HardCap.App       The Windows app: window, tray icon, notifications
+tests/HardCap.Tests   Tests for the brains
 ```
 
 The decisions about what to close and when to warn live in `EnforcementEngine` and `LimitForecast`. They're told the time and the running apps rather than looking them up, which is why the tests can try any scenario without waiting around for the real clock.
 
 ## Patch notes
 
-**v0**: First working version. Groups, weekly schedule, per-group daily budgets, warnings, locks, closing apps, tray icon.
+**v0**: First working version. Groups, weekly schedule, per-group daily budgets, warnings, locks, grace periods, pausing, a settings page (new-day time, waits and open hours, export/import), searching and browsing for apps, closing apps, tray icon.
 
 ## Contributing
 

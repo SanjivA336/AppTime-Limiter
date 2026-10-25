@@ -1,0 +1,402 @@
+using System.IO;
+using System.Windows.Threading;
+using HardCap.App.ViewModels;
+using HardCap.Core.Models;
+
+namespace HardCap.App.Services;
+
+/// <summary>
+/// Development aid (--self-test): runs the group editor's save, revert and cancel rules on the app's own view
+/// models and writes a pass/fail report. It needs no mouse, no focus and no screen, so it is safe to run while
+/// someone is using the computer. It edits the data folder it is given, so use a throwaway copy.
+/// </summary>
+internal static class EditorSelfTest
+{
+    /// <returns>True if every check passed.</returns>
+    public static async Task<bool> RunAsync(MainViewModel main, string settingsPath, string reportPath)
+    {
+        var report = new List<string>();
+        var failures = 0;
+
+        void Check(string what, bool passed)
+        {
+            report.Add($"{(passed ? "PASS" : "FAIL")}  {what}");
+            if (!passed)
+            {
+                failures++;
+            }
+        }
+
+        string OnDisk() => File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : string.Empty;
+
+        var card = main.Groups[0];
+        var real = card.Model;
+        var originalName = real.Name;
+        var originalColor = real.Color;
+        var otherGroupName = main.Groups[1].Name;
+        var saturdayBudget = real.BudgetMinutesFor(DayOfWeek.Saturday);
+        var otherGroupSaturdayBudget = main.Groups[1].Model.BudgetMinutesFor(DayOfWeek.Saturday);
+
+        main.SaveNow();
+        var diskAtStart = OnDisk();
+
+        // 1. Edits go to a draft. Nothing real changes, and nothing is written, until Save.
+        var editor = new GroupEditorViewModel(main, card);
+        editor.Name = "Renamed";
+        editor.ColorHex = "#BB6BD9";
+        editor.Draft.Schedule.SetState(DayOfWeek.Monday, 3, CellState.Blocked);
+        editor.NotifyScheduleEdited();
+        editor.SetBudgetMinutes(DayOfWeek.Saturday, 77);
+
+        Check("editing marks the editor as having changes", editor.HasChanges);
+        Check("editing does not rename the real group", real.Name == originalName);
+        Check("editing does not recolor the real group", real.Color == originalColor);
+        Check("editing does not change the real schedule", real.Schedule.GetState(DayOfWeek.Monday, 3) != CellState.Blocked);
+        Check("editing does not change the real budget", real.BudgetMinutesFor(DayOfWeek.Saturday) == saturdayBudget);
+        Check("editing does not change the card", card.Name == originalName);
+        Check("editing writes nothing to disk", OnDisk() == diskAtStart);
+
+        // 2. Revert puts the draft back, and the window stays usable.
+        editor.Revert();
+        Check("revert clears the changes flag", !editor.HasChanges);
+        Check("revert restores the name", editor.Name == originalName);
+        Check("revert restores the color", editor.ColorHex == originalColor);
+        Check("revert restores the schedule", editor.Schedule.GetState(DayOfWeek.Monday, 3) == real.Schedule.GetState(DayOfWeek.Monday, 3));
+        Check("revert restores the budget", editor.GetBudgetMinutes(DayOfWeek.Saturday) == saturdayBudget);
+
+        // 3. Save makes the draft real and writes the file.
+        editor.Name = "Renamed";
+        editor.ColorHex = "#BB6BD9";
+        editor.Draft.Schedule.SetState(DayOfWeek.Monday, 3, CellState.Blocked);
+        editor.NotifyScheduleEdited();
+        editor.SetBudgetMinutes(DayOfWeek.Saturday, 77);
+        var saved = editor.Save();
+
+        Check("save reports that it saved", saved);
+        Check("save renames the real group", real.Name == "Renamed");
+        Check("save recolors the real group", real.Color == "#BB6BD9");
+        Check("save changes the real schedule", real.Schedule.GetState(DayOfWeek.Monday, 3) == CellState.Blocked);
+        Check("save changes this group's budget", real.BudgetMinutesFor(DayOfWeek.Saturday) == 77);
+        Check("save leaves every other group's budget alone", main.Groups[1].Model.BudgetMinutesFor(DayOfWeek.Saturday) == otherGroupSaturdayBudget);
+        Check("a saved budget is written to disk inside the group", OnDisk().Contains("77"));
+        Check("save updates the card", card.Name == "Renamed");
+        Check("save writes the new name to disk", OnDisk().Contains("\"Renamed\""));
+        Check("save writes the new budget to disk", OnDisk().Contains("77"));
+
+        // 4. Closing without saving throws the draft away.
+        var abandoned = new GroupEditorViewModel(main, card);
+        abandoned.Name = "Discarded";
+        abandoned.Draft.Processes.Add("some-app");
+        abandoned.Draft.Schedule.SetState(DayOfWeek.Tuesday, 5, CellState.Limited);
+        abandoned.NotifyScheduleEdited();
+        // (the window is closed here, so nothing else happens)
+
+        Check("an abandoned edit leaves the real name alone", real.Name == "Renamed");
+        Check("an abandoned edit leaves the real apps alone", !real.Processes.Contains("some-app"));
+        Check("an abandoned edit writes nothing", !OnDisk().Contains("Discarded"));
+
+        // 5. Saving with nothing changed does nothing.
+        var untouched = new GroupEditorViewModel(main, card);
+        Check("save with no changes reports that nothing was saved", !untouched.Save());
+
+        // 6. Two warnings with the same number can't both be saved, but they may briefly match while being edited.
+        var warnings = new GroupEditorViewModel(main, card);
+        warnings.AddWarningCommand.Execute(null);
+        warnings.AddWarningCommand.Execute(null);
+        Check("two warnings can be added", warnings.Warnings.Count == 2);
+        warnings.Warnings[1].Minutes = warnings.Warnings[0].Minutes; // make them the same
+        await FlushDispatcherAsync();
+        Check("a repeated warning is NOT removed while editing", warnings.Warnings.Count == 2);
+        Check("both repeated rows are marked", warnings.Warnings.All(w => w.IsDuplicate) && warnings.HasDuplicateWarnings);
+        Check("saving is refused while there is a repeat", !warnings.ValidateForSave());
+        Check("the user is told why", !string.IsNullOrEmpty(warnings.Message));
+        Check("the real group is untouched by the refused save", card.Model.WarningMinutes.Count != 2 || card.Model.WarningMinutes.Distinct().Count() == 2);
+        warnings.Warnings[1].Minutes = warnings.Warnings[0].Minutes + 1; // step it past the other one
+        await FlushDispatcherAsync();
+        Check("moving past the other number clears the marks", !warnings.HasDuplicateWarnings && warnings.Warnings.All(w => !w.IsDuplicate));
+        Check("and the reminder goes away", string.IsNullOrEmpty(warnings.Message));
+        Check("saving is allowed once they differ", warnings.ValidateForSave());
+        Check("the draft keeps both distinct warnings", warnings.Draft.WarningMinutes.Count == 2);
+
+        // 7. Names must be unique, and a refused name leaves the old one in place.
+        var naming = new GroupEditorViewModel(main, card);
+        naming.Name = otherGroupName;
+        Check("a name used by another group is refused", naming.Name == "Renamed");
+        Check("the user is told the name is taken", !string.IsNullOrEmpty(naming.Message));
+
+        // 8. A new group only exists once saved.
+        var groupsBefore = main.Settings.Groups.Count;
+        var cardsBefore = main.Groups.Count;
+
+        var discardedNew = new GroupEditorViewModel(main, main.CreateGroup());
+        discardedNew.Name = "Never saved";
+        Check("a new group's editor has nothing to delete", !discardedNew.CanDelete);
+        Check("an unsaved new group is not in the settings", main.Settings.Groups.Count == groupsBefore);
+        Check("an unsaved new group has no card", main.Groups.Count == cardsBefore);
+
+        var newCard = main.CreateGroup();
+        var created = new GroupEditorViewModel(main, newCard);
+        created.Name = "Brand new";
+        created.Save();
+        Check("a saved new group joins the settings", main.Settings.Groups.Count == groupsBefore + 1);
+        Check("a saved new group gets a card", main.Groups.Count == cardsBefore + 1);
+        Check("a saved new group is written to disk", OnDisk().Contains("Brand new"));
+        Check("an abandoned new group is not on disk", !OnDisk().Contains("Never saved"));
+
+        // 9. The lock boxes: seconds carry into minutes and borrow from them, and the total stays between 0:00 and 5:00.
+        var lockBoxes = new GroupEditorViewModel(main, card);
+        Check("a group without a lock opens straight into the editor", !lockBoxes.IsLocked && lockBoxes.IsUnlocked);
+
+        lockBoxes.Lock.Seconds = 60;
+        Check("60 seconds becomes 1 minute 0 seconds", lockBoxes.Lock.Minutes == 1 && lockBoxes.Lock.Seconds == 0);
+        lockBoxes.Lock.Seconds = -5;
+        Check("stepping the seconds below 0 borrows a minute (0:55)", lockBoxes.Lock.Minutes == 0 && lockBoxes.Lock.Seconds == 55);
+        lockBoxes.Lock.Seconds = 60;
+        Check("stepping 0:55 up past 59 carries to 1:00", lockBoxes.Lock.Minutes == 1 && lockBoxes.Lock.Seconds == 0);
+
+        lockBoxes.Lock.Minutes = 5;
+        lockBoxes.Lock.Seconds = 5;
+        Check("the lock can't go past 5:00", lockBoxes.Lock.Minutes == 5 && lockBoxes.Lock.Seconds == 0);
+        lockBoxes.Lock.Minutes = 0;
+        lockBoxes.Lock.Seconds = -5;
+        Check("the lock can't go below 0:00", lockBoxes.Lock.Minutes == 0 && lockBoxes.Lock.Seconds == 0);
+        Check("0:00 reads as no lock", lockBoxes.Lock.Summary == "No lock");
+
+        lockBoxes.Lock.Minutes = 0;
+        lockBoxes.Lock.Seconds = 7;
+        Check("a typed 7 seconds is tidied to 5", lockBoxes.Lock.Seconds == 5);
+
+        lockBoxes.Lock.Minutes = 2;
+        lockBoxes.Revert();
+        Check("revert also undoes the lock", lockBoxes.Lock.Minutes == 0 && lockBoxes.Lock.Seconds == 0);
+
+        // 10. Setting a lock takes effect the NEXT time the group is opened, never in the window it was set in.
+        var setter = new GroupEditorViewModel(main, card);
+        setter.Lock.Minutes = 1;
+        Check("setting a lock does not lock the window you are in", setter.IsUnlocked);
+        setter.Save();
+        Check("the lock is saved to the group", real.LockSeconds == 60);
+        Check("the lock is written to disk", OnDisk().Contains("\"lockSeconds\": 60"));
+
+        var locked = new GroupEditorViewModel(main, card);
+        Check("opening a locked group shows the lock screen", locked.IsLocked);
+        Check("the lock screen hides the editor", !locked.IsUnlocked);
+        Check("the countdown starts at the full length", locked.LockRemainingText == "1:00");
+        locked.StopCountdown();
+
+        // 11. The countdown really counts down, then reveals the editor, and every open starts the wait again.
+        real.LockSeconds = 2;
+        var waiting = new GroupEditorViewModel(main, card);
+        Check("a short lock starts locked", waiting.IsLocked);
+        await Task.Delay(1000);
+        Check("it is still locked partway through", waiting.IsLocked);
+        Check("the bar has gone down by then", waiting.LockProgress < 1 && waiting.LockProgress > 0);
+        await Task.Delay(1600);
+        Check("the editor appears when the countdown ends", waiting.IsUnlocked && waiting.LockRemainingText == "0:00");
+
+        var again = new GroupEditorViewModel(main, card);
+        Check("opening it again starts the whole wait over", again.IsLocked);
+        again.StopCountdown();
+
+        // 12. Taking the lock off (from inside the editor) and a lock never hiding a new group.
+        real.LockSeconds = 0;
+        Check("a group whose lock was removed opens straight into the editor", new GroupEditorViewModel(main, card).IsUnlocked);
+        Check("a new group is never locked", new GroupEditorViewModel(main, main.CreateGroup()).IsUnlocked);
+
+        // 13. The real number boxes in a real window (everything above skipped the controls and used the view models).
+        var window = new Views.GroupEditorWindow(main, card)
+        {
+            ShowActivated = true,
+            WindowStartupLocation = System.Windows.WindowStartupLocation.Manual,
+            Left = 100,
+            Top = 0,
+        };
+        window.Show();
+        window.Activate();
+        var windowEditor = (GroupEditorViewModel)window.DataContext;
+        windowEditor.AddWarningCommand.Execute(null);
+        await FlushDispatcherAsync();
+        window.UpdateLayout();
+
+        var warningBox = FindAll<Wpf.Ui.Controls.NumberBox>(window).First(box => box.Maximum == 1440);
+        warningBox.Focus();
+        warningBox.Text = "45";
+        Check("typing in a warning box has not saved it yet (it saves on leaving the box)", windowEditor.Warnings[0].Minutes != 45);
+
+        window.SaveButton.Focus();
+        await FlushDispatcherAsync();
+        Check("moving focus to Save commits the typed warning", windowEditor.Warnings[0].Minutes == 45);
+
+        var lockBox = FindAll<Wpf.Ui.Controls.NumberBox>(window).Last(box => box.Minimum == -300); // the lock card comes after the grace card
+        lockBox.Focus();
+        lockBox.Text = "45";
+        window.SaveButton.Focus();
+        await FlushDispatcherAsync();
+        Check("moving focus to Save commits the typed lock seconds (0:45)", windowEditor.Lock.Minutes == 0 && windowEditor.Lock.Seconds == 45);
+        // The NumberBox is itself a text box; the room its text gets is the "content host" scroll viewer in its template.
+        var textRoom = FindAll<System.Windows.Controls.ScrollViewer>(lockBox).First().ActualWidth;
+        Check($"a two-digit number fits in the box (text area is {textRoom:0} px wide, needs 40)", textRoom >= 40);
+
+        // The arrow buttons of a number box change its value without any typing.
+        var minutesBox = FindAll<Wpf.Ui.Controls.NumberBox>(window).Last(box => box.Minimum == -1);
+        minutesBox.Value = 2;
+        await FlushDispatcherAsync();
+        Check($"changing a box's value in code (like its arrows do) reaches the editor (box {minutesBox.Value}, text '{minutesBox.Text}', editor {windowEditor.Lock.Minutes}:{windowEditor.Lock.Seconds}, draft {windowEditor.Draft.LockSeconds}s)", windowEditor.Lock.Minutes == 2);
+
+        // The budget boxes on the Schedule tab.
+        windowEditor.Draft.Schedule.SetState(DayOfWeek.Monday, 20, CellState.Limited);
+        windowEditor.NotifyScheduleEdited();
+        window.SelectTab(1);
+        await FlushDispatcherAsync();
+        window.UpdateLayout();
+        var budgetBox = FindAll<Wpf.Ui.Controls.NumberBox>(window).First(box => box.Maximum == 1440 && box.Minimum == 0 && box.IsEnabled);
+        budgetBox.Focus();
+        budgetBox.Text = "45";
+        window.SaveButton.Focus();
+        await FlushDispatcherAsync();
+        Check("moving focus to Save commits a typed daily budget", windowEditor.GetBudgetMinutes(DayOfWeek.Monday) == 45);
+
+        // The grace period's boxes, in the real window.
+        window.SelectTab(0);
+        await FlushDispatcherAsync();
+        window.UpdateLayout();
+        var graceSecondsBox = FindAll<Wpf.Ui.Controls.NumberBox>(window).First(box => box.Minimum == -300);
+        graceSecondsBox.Focus();
+        graceSecondsBox.Text = "30";
+        window.SaveButton.Focus();
+        await FlushDispatcherAsync();
+        Check("a typed grace period reaches the draft", windowEditor.Draft.GraceSeconds == 30);
+        Check("typing a grace period does not change the lock", windowEditor.Draft.LockSeconds == 165); // 2:45, from the checks above
+        window.Close();
+
+        // 14. Pause, in the editor's draft.
+        real.IsPaused = false;
+        real.PausedUntil = null;
+        var pausing = new GroupEditorViewModel(main, card);
+        Check("a group that isn't paused opens as \"Not paused\"", pausing.SelectedPauseOption?.Kind == PauseKind.NotPaused);
+        pausing.SelectedPauseOption = pausing.PauseOptions.First(o => o.Kind == PauseKind.UntilResumed);
+        Check("pausing until resumed marks the draft paused with no end", pausing.Draft.IsPaused && pausing.Draft.PausedUntil is null);
+        Check("pausing is not real until it is saved", !real.IsPaused);
+        pausing.SelectedPauseOption = pausing.PauseOptions.First(o => o.Duration == TimeSpan.FromHours(1));
+        Check("\"for 1 hour\" sets an end about an hour away", pausing.Draft.PausedUntil is { } end && Math.Abs((end - DateTime.Now).TotalMinutes - 60) < 1);
+        pausing.Save();
+        Check("saving a pause makes it real", real.IsPausedAt(DateTime.Now) && real.PausedUntil is not null);
+        Check("the card says it is paused", card.StatusText.StartsWith("Paused until"));
+
+        var resuming = new GroupEditorViewModel(main, card);
+        Check("a group paused until a time offers to keep that pause", resuming.SelectedPauseOption?.Kind == PauseKind.KeepCurrent);
+        resuming.SelectedPauseOption = resuming.PauseOptions.First(o => o.Kind == PauseKind.NotPaused);
+        resuming.Save();
+        Check("choosing \"not paused\" and saving resumes the group", !real.IsPausedAt(DateTime.Now));
+
+        // 15. The countdown only runs while its window is the active one.
+        var waiting2 = new WaitCountdown(30);
+        waiting2.SetWindowActive(false);
+        var before = waiting2.Progress;
+        await Task.Delay(700);
+        Check("a countdown standing in the background does not move", waiting2.Progress == before && waiting2.IsPaused);
+        waiting2.SetWindowActive(true);
+        await Task.Delay(700);
+        Check("it carries on when its window is active again", waiting2.Progress < before && !waiting2.IsPaused);
+        waiting2.Stop();
+
+        // 16. The general wait (settings) also locks a group, and open hours switch it off.
+        real.LockSeconds = 0;
+        main.Settings.WaitSeconds = 20;
+        main.Settings.OpenHoursEnabled = false;
+        var general = new GroupEditorViewModel(main, card);
+        Check("the general wait makes a group without a lock wait", general.IsLocked && general.Countdown?.TotalSeconds == 20);
+        general.StopCountdown();
+
+        main.Settings.OpenHoursEnabled = true;
+        main.Settings.OpenHoursStartMinutes = 0;
+        main.Settings.OpenHoursEndMinutes = 24 * 60 - 1;
+        var inOpenHours = new GroupEditorViewModel(main, card);
+        Check("during open hours the general wait does not apply", inOpenHours.IsUnlocked);
+
+        real.LockSeconds = 30;
+        var lockInOpenHours = new GroupEditorViewModel(main, card);
+        Check("a group's own lock still applies during open hours", lockInOpenHours.IsLocked && lockInOpenHours.Countdown?.TotalSeconds == 30);
+        lockInOpenHours.StopCountdown();
+        real.LockSeconds = 0;
+        main.Settings.WaitSeconds = 0;
+        main.Settings.OpenHoursEnabled = false;
+
+        // 17. The Settings page: its wait, the reset time, and export / import.
+        var settingsPage = new SettingsViewModel(main);
+        settingsPage.BeginWait();
+        Check("with no wait the settings open straight away", settingsPage.IsUnlocked && settingsPage.Countdown is null);
+
+        main.Settings.WaitSeconds = 2;
+        settingsPage.BeginWait();
+        Check("a general wait puts the settings behind a countdown", settingsPage.IsLocked && settingsPage.Countdown?.TotalSeconds == 2);
+        await Task.Delay(2600);
+        Check("the settings open when the countdown ends", settingsPage.IsUnlocked);
+        settingsPage.BeginWait();
+        Check("opening the settings again starts the wait over", settingsPage.IsLocked);
+        settingsPage.EndWait();
+        main.Settings.WaitSeconds = 0;
+
+        settingsPage.SelectedReset = TimeChoice.For(4 * 60);
+        Check("choosing a reset time changes the setting", main.Settings.ResetMinutes == 240);
+        Check("the reset time is explained", settingsPage.ResetSummary.Contains("4:00 AM"));
+        Check("the group editor's note shows the reset time", new GroupEditorViewModel(main, card).BudgetNoteText.Contains("4:00 AM"));
+
+        var backup = Path.Combine(Path.GetTempPath(), $"hardcap-selftest-{Guid.NewGuid():N}.json");
+        try
+        {
+            var groupCount = main.Settings.Groups.Count;
+            Check("exporting writes a file", settingsPage.Export(backup) && File.Exists(backup));
+
+            main.Settings.ResetMinutes = 0;
+            main.RemoveGroup(main.Groups[^1]);
+            Check("a group was removed after the export", main.Settings.Groups.Count == groupCount - 1);
+
+            Check("importing the file works", settingsPage.Import(backup));
+            Check("importing brings the groups back", main.Settings.Groups.Count == groupCount && main.Groups.Count == groupCount);
+            Check("importing brings the reset time back", main.Settings.ResetMinutes == 240);
+
+            File.WriteAllText(backup, "this is not settings");
+            Check("a broken file is refused", !settingsPage.Import(backup) && main.Settings.Groups.Count == groupCount);
+        }
+        finally
+        {
+            File.Delete(backup);
+            main.Settings.ResetMinutes = 0;
+        }
+
+        // 18. The quit window opens, counts down, and offers the choice at the end.
+        var exitWindow = new Views.ExitWaitWindow(1) { WindowStartupLocation = System.Windows.WindowStartupLocation.Manual, Left = 100, Top = 0 };
+        exitWindow.Show();
+        await Task.Delay(1600);
+        Check("the quit window has not quit by itself", !exitWindow.QuitConfirmed);
+        exitWindow.Close();
+
+        report.Add(string.Empty);
+        report.Add(failures == 0 ? "ALL CHECKS PASSED" : $"{failures} CHECK(S) FAILED");
+        File.WriteAllLines(reportPath, report);
+        return failures == 0;
+    }
+
+    /// <summary>Every element of the given type anywhere inside <paramref name="root"/>, in the order they appear.</summary>
+    private static IEnumerable<T> FindAll<T>(System.Windows.DependencyObject root) where T : System.Windows.DependencyObject
+    {
+        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (var inner in FindAll<T>(child))
+            {
+                yield return inner;
+            }
+        }
+    }
+
+    /// <summary>Lets anything queued to run "right after" the current work actually run.</summary>
+    private static Task FlushDispatcherAsync() =>
+        System.Windows.Application.Current.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle).Task;
+}

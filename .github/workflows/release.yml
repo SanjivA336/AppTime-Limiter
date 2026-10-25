@@ -28,9 +28,9 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}".TrimStart('v')
-          dotnet publish src/AppTimeLimiter.App --configuration Release --runtime win-x64 `
+          dotnet publish src/HardCap.App --configuration Release --runtime win-x64 `
             --self-contained false --output publish -p:Version=$version
-          Compress-Archive -Path publish/* -DestinationPath "AppTimeLimiter-${{ github.ref_name }}-win-x64.zip"
+          Compress-Archive -Path publish/* -DestinationPath "HardCap-${{ github.ref_name }}-win-x64.zip"
 
       - name: Create draft release
         shell: pwsh
@@ -41,4 +41,4 @@ jobs:
           $flags = @('--draft', '--generate-notes', '--title', $tag)
           # Anything below 1.0 is marked as a pre-release.
           if ($tag -like 'v0.*') { $flags += '--prerelease' }
-          gh release create $tag "AppTimeLimiter-$tag-win-x64.zip" @flags
+          gh release create $tag "HardCap-$tag-win-x64.zip" @flags

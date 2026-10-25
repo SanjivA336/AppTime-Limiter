@@ -1,5 +1,5 @@
 {
-  "dotnet.defaultSolution": "AppTimeLimiter.sln",
+  "dotnet.defaultSolution": "HardCap.sln",
   "files.exclude": {
     "**/bin": true,
     "**/obj": true
