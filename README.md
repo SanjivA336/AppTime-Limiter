@@ -8,7 +8,7 @@ Set your limits once. Windows keeps you to them.
 
 HardCap closes the apps you choose when you've hit your daily time or you're outside your allowed hours. It started as a way to keep my own gaming in check, but it works with any app.
 
-> **Heads up:** this is v0. The core works, but there's no installer yet, so for now you build it yourself (it's two commands, see below).
+> **Get it:** download `HardCap-Setup-1.0.0.exe` from the [latest release](https://github.com/SanjivA336/AppTime-Limiter/releases/latest) and run it. It installs for your account only (no admin prompt) and shows up in Add or remove programs. Windows may warn about an unknown publisher, because the installer isn't code-signed.
 
 ## How it works
 
@@ -74,6 +74,8 @@ Want a standalone build?
 dotnet publish src/HardCap.App -c Release -r win-x64 --self-contained false -o publish
 ```
 
+Want the installer? Install [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`), then run `tools/build-installer.ps1 -Version 1.0.0`. It publishes the app and writes `artifacts/HardCap-Setup-1.0.0.exe`. The script is `installer/HardCap.iss`; never change its `AppId`, or an upgrade would install a second copy.
+
 Working in VS Code? Press **F5**. The "dev data" profile keeps its settings in a throwaway `.dev-data` folder and never registers itself to start with Windows, so it can't mess with your real setup. Tasks for build, test and publish are in the Terminal > Run Task menu.
 
 If you turn on *Start with Windows* and later move the `.exe`, just switch the setting off and on again so it learns the new location.
@@ -118,7 +120,7 @@ This is a self-control tool, not a security system.
 
 **Planned**
 - [ ] Website blocking through a browser extension
-- [ ] An installer, so you don't need to build it yourself
+- [x] An installer, so you don't need to build it yourself
 
 Got an idea? Open an issue and say hi.
 
