@@ -1,4 +1,5 @@
 using HardCap.Core.Models;
+using HardCap.Core.Usage;
 
 namespace HardCap.App.ViewModels;
 
@@ -42,4 +43,18 @@ public sealed record TimeChoice(int Minutes, string Label)
     public static TimeChoice For(int minutesAfterMidnight) => Nearest(minutesAfterMidnight);
 
     public override string ToString() => Label;
+}
+
+/// <summary>
+/// One column of the stacked bar chart: a day of a week, or an hour of a day. It holds what the column is called, what each
+/// group contributed, and whether clicking it opens something.
+/// </summary>
+/// <param name="Label">The short label under the column ("Mon", "3p").</param>
+/// <param name="Title">The longer name used in the hover card ("Wed Oct 21", "3 PM to 4 PM").</param>
+/// <param name="Groups">Each selected group's time in the column (in the order of the settings, which sets the stacking order).</param>
+/// <param name="IsHighlighted">True for the column that is "now" (today, or this hour), which is drawn bold.</param>
+/// <param name="ClickDate">The day to open when the column is clicked, or null when there is nothing to open.</param>
+public sealed record ChartColumn(string Label, string Title, IReadOnlyList<GroupUsage> Groups, bool IsHighlighted, DateOnly? ClickDate)
+{
+    public double TotalSeconds => Groups.Sum(g => g.Seconds);
 }

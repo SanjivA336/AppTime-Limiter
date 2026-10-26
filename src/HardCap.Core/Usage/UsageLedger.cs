@@ -11,6 +11,22 @@ public sealed class DayUsage
 
     /// <summary>Seconds during Free cells; recorded for stats only.</summary>
     public double FreeSeconds { get; set; }
+
+    /// <summary>
+    /// Seconds each of the group's apps was running (by process name), for the Analytics page. Each running app is credited
+    /// the whole time that passed, so these can add up to more than the group's own time when several run together.
+    /// Days recorded before this existed have none.
+    /// </summary>
+    public Dictionary<string, double> Processes { get; set; } = new();
+
+    /// <summary>
+    /// Seconds the group was used in each hour of the clock (index 0 is 12 AM to 1 AM, index 23 is 11 PM to midnight), for
+    /// the Analytics day view. Null for days recorded before hours were kept.
+    /// </summary>
+    public double[]? Hourly { get; set; }
+
+    /// <summary>The same for each app: its seconds in each hour of the clock. Null for days recorded before hours were kept.</summary>
+    public Dictionary<string, double[]>? AppHourly { get; set; }
 }
 
 /// <summary>
@@ -28,12 +44,26 @@ public sealed class UsageLedger
         _path = path;
     }
 
+    /// <summary>How long usage is kept. Older days are deleted. A day is only a few numbers, so this is about tidiness, not space.</summary>
+    public const int RetentionMonths = 3;
+
     public bool IsDirty { get; private set; }
 
     /// <summary>Set when the existing usage file couldn't be read, so the UI can tell the user.</summary>
     public string? LoadError { get; private set; }
 
-    public void Add(DateOnly date, Guid groupId, double seconds, bool countsTowardBudget)
+    /// <param name="runningProcesses">The group's apps that were running, each of which is credited <paramref name="seconds"/> too.</param>
+    /// <param name="endedAt">
+    /// The clock time the credited stretch ended. When given, the time is also filed under the hours of the clock it covers
+    /// (split at the hour if it crosses one). Without it, no hourly detail is kept.
+    /// </param>
+    public void Add(
+        DateOnly date,
+        Guid groupId,
+        double seconds,
+        bool countsTowardBudget,
+        IEnumerable<string>? runningProcesses = null,
+        DateTime? endedAt = null)
     {
         if (seconds <= 0)
         {
@@ -60,7 +90,47 @@ public sealed class UsageLedger
             usage.FreeSeconds += seconds;
         }
 
+        var apps = runningProcesses?.ToList() ?? new List<string>();
+        usage.Processes ??= new Dictionary<string, double>();
+        foreach (var process in apps)
+        {
+            usage.Processes[process] = usage.Processes.GetValueOrDefault(process) + seconds;
+        }
+
+        if (endedAt is DateTime end)
+        {
+            AddHourly(usage, seconds, apps, end);
+        }
+
         IsDirty = true;
+    }
+
+    /// <summary>Files a stretch of time under the clock hours it covers, splitting it where it crosses the top of an hour.</summary>
+    private static void AddHourly(DayUsage usage, double seconds, List<string> apps, DateTime endedAt)
+    {
+        usage.Hourly ??= new double[24];
+        usage.AppHourly ??= new Dictionary<string, double[]>();
+
+        var cursor = endedAt.AddSeconds(-seconds);
+        while (cursor < endedAt)
+        {
+            var nextHour = new DateTime(cursor.Year, cursor.Month, cursor.Day, cursor.Hour, 0, 0).AddHours(1);
+            var segmentEnd = nextHour < endedAt ? nextHour : endedAt;
+            var part = (segmentEnd - cursor).TotalSeconds;
+
+            usage.Hourly[cursor.Hour] += part;
+            foreach (var app in apps)
+            {
+                if (!usage.AppHourly.TryGetValue(app, out var hours) || hours.Length != 24)
+                {
+                    usage.AppHourly[app] = hours = new double[24];
+                }
+
+                hours[cursor.Hour] += part;
+            }
+
+            cursor = segmentEnd;
+        }
     }
 
     /// <summary>
@@ -68,6 +138,47 @@ public sealed class UsageLedger
     /// Other groups' time is not included, because every group has its own budget.
     /// </summary>
     public double GetBudgetSecondsUsed(DateOnly date, Guid groupId) => GetUsage(date, groupId).LimitedSeconds;
+
+    /// <summary>
+    /// Deletes every day before <paramref name="cutoff"/>. Returns how many days were removed (the file is rewritten at
+    /// the next save if there were any).
+    /// </summary>
+    public int PruneOlderThan(DateOnly cutoff)
+    {
+        var stale = _days.Keys
+            .Where(key => DateOnly.TryParseExact(key, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day) && day < cutoff)
+            .ToList();
+
+        foreach (var key in stale)
+        {
+            _days.Remove(key);
+        }
+
+        if (stale.Count > 0)
+        {
+            IsDirty = true;
+        }
+
+        return stale.Count;
+    }
+
+    /// <summary>The first day anything was recorded for any group, or null if nothing has been. This is when tracking began.</summary>
+    public DateOnly? FirstDay
+    {
+        get
+        {
+            DateOnly? first = null;
+            foreach (var key in _days.Keys)
+            {
+                if (DateOnly.TryParseExact(key, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day) && (first is null || day < first))
+                {
+                    first = day;
+                }
+            }
+
+            return first;
+        }
+    }
 
     public DayUsage GetUsage(DateOnly date, Guid groupId) =>
         _days.TryGetValue(Key(date), out var groups) && groups.TryGetValue(groupId, out var usage)

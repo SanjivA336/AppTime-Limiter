@@ -39,6 +39,12 @@ When an app has to go, it's asked nicely first so it can save. If it hasn't clos
 - Warnings before time runs out, and an optional per-group **grace period** (up to 5 minutes) to save when a limit starts while an app is running. An app opened during a block is closed straight away
 - **Pause** a group for a while (30 minutes, a few hours, until a day and time, or until you resume it). A paused group is treated as Free. Pausing lives in the group's settings, so it waits behind the lock
 - A **Settings** page (bottom of the sidebar): choose when a new day starts (say 4 AM if you stay up late), set a general wait before opening groups, the settings, or quitting, with optional **open hours** when there is no wait, and export or import your settings
+- An **Analytics** page, in the style of Screen Time. Pick any mix of groups (or none, or "Select all"), and look at a **day**, a **week** or a **month**, stepping back as far as you like (it says "No data for…" when a period is empty). Each view has a headline number with how it compares with earlier weeks, a few totals, and a bar for each group or app:
+  - **Day:** stacked columns for each hour of the day, split by group (hour-by-hour detail is recorded from the version that added it onward)
+  - **Week:** stacked columns for each day, split by group; click a day to open it
+  - **Month:** a calendar with a pie and the day's total in every day that has usage, and the week number on the left; click a day to open it, or a week number to open that week; point at a day for a text summary of its groups and percentages
+
+  Point at a group in the day or week charts, or in the bars, and it fades into the apps that make it up. Usage is kept for 3 months. Time for each app is recorded from the version that added this page onward; earlier days only have a total per group
 - Add apps by picking a running one, searching your installed apps, or browsing for the program file. Anti-cheat and helper programs are flagged, because they run all day and would eat your budget
 - A tray icon, so it keeps working after you close the window
 - An option to start with Windows
@@ -77,7 +83,7 @@ If you turn on *Start with Windows* and later move the `.exe`, just switch the s
 Everything is in `%LOCALAPPDATA%\HardCap\`:
 
 - `settings.json`: your groups, with each group's schedule, warnings, lock, grace period, pause and daily budgets, plus the general settings (new-day time, wait, open hours). Older files are upgraded automatically
-- `usage.json`: how long each group has been used, day by day
+- `usage.json`: how long each group, and each of its apps, has been used, day by day and hour by hour. Days older than 3 months are deleted automatically
 - `app.log`: a small log, handy if something looks off
 
 Settings are plain text, so you can edit them by hand. Each day's schedule is 48 letters, one per half hour from midnight: `F` is Free, `L` is Limited, `B` is Blocked. Days are listed Sunday first. If the app can't read something, it plays it safe and treats it as Blocked.
@@ -108,9 +114,9 @@ This is a self-control tool, not a security system.
 - [x] A custom time for the day to reset
 - [x] A settings page with a wait (and open hours) before opening groups, settings, or quitting
 - [x] Export and import your settings
+- [x] Analytics page: see where your time actually goes
 
 **Planned**
-- [ ] Stats page: see where your time actually goes
 - [ ] Website blocking through a browser extension
 - [ ] An installer, so you don't need to build it yourself
 
@@ -128,7 +134,7 @@ The decisions about what to close and when to warn live in `EnforcementEngine` a
 
 ## Patch notes
 
-**v0**: First working version. Groups, weekly schedule, per-group daily budgets, warnings, locks, grace periods, pausing, a settings page (new-day time, waits and open hours, export/import), searching and browsing for apps, closing apps, tray icon.
+**v0**: First working version. Groups, weekly schedule, per-group daily budgets, warnings, locks, grace periods, pausing, a settings page (new-day time, waits and open hours, export/import), searching and browsing for apps, an analytics page, closing apps, tray icon.
 
 ## Contributing
 

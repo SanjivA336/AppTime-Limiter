@@ -31,6 +31,25 @@ public static class TimeText
     }
 
     /// <summary>
+    /// The seven days of a week as a short range: "Oct 19 – 25", "Oct 26 – Nov 1", and with the years when the week isn't
+    /// wholly in the same year as <paramref name="today"/> ("Dec 29, 2025 – Jan 4, 2026"). Always in English month names.
+    /// </summary>
+    public static string WeekRange(DateOnly weekStart, DateOnly today)
+    {
+        var end = weekStart.AddDays(6);
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        var showYear = weekStart.Year != today.Year || end.Year != today.Year;
+
+        if (!showYear && weekStart.Month == end.Month)
+        {
+            return $"{weekStart.ToString("MMM d", culture)} – {end.Day}";
+        }
+
+        var format = showYear ? "MMM d, yyyy" : "MMM d";
+        return $"{weekStart.ToString(format, culture)} – {end.ToString(format, culture)}";
+    }
+
+    /// <summary>
     /// "1h 12m", "2h", "45m". Shown in whole minutes (rounded down); anything under a minute is "&lt;1m",
     /// and zero or negative time is "0m".
     /// </summary>

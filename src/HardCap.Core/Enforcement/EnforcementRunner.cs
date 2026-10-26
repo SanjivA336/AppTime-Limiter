@@ -44,7 +44,8 @@ public sealed class EnforcementRunner
         _busy = true;
         try
         {
-            var result = _engine.Tick(_getSettings(), now, _processes.GetRunningProcessNames());
+            var settings = _getSettings();
+            var result = _engine.Tick(settings, now, _processes.GetRunningProcessNames());
 
             foreach (var alert in result.Alerts)
             {
@@ -66,6 +67,8 @@ public sealed class EnforcementRunner
             if (now - _lastSave >= SaveInterval)
             {
                 _lastSave = now;
+                // Usage older than the retention period is dropped as part of the regular save.
+                _ledger.PruneOlderThan(BudgetDay.Of(now, settings.ResetMinutes).AddMonths(-UsageLedger.RetentionMonths));
                 _ledger.SaveIfDirty();
             }
 

@@ -98,7 +98,7 @@ public sealed class EnforcementEngine
 
             // Each group has its own budget for each day (and each day can have a different one).
             var dailyBudgetSeconds = group.BudgetMinutesFor(budgetDayOfWeek) * 60.0;
-            var closeReason = RecordUsageAndCheckLimits(group, cellState, secondsToCredit, today, dailyBudgetSeconds);
+            var closeReason = RecordUsageAndCheckLimits(group, cellState, secondsToCredit, today, dailyBudgetSeconds, runningFromThisGroup, now);
             if (closeReason is CloseReason reason)
             {
                 if (ShouldCloseNow(group, reason, now, alerts))
@@ -172,11 +172,14 @@ public sealed class EnforcementEngine
     }
 
     /// <summary>
-    /// Adds this tick's time to the usage record (if the cell type tracks it), then says whether the
-    /// group's apps have to be closed. Returns null when they're allowed to keep running.
+    /// Adds this tick's time (for the group, and for each of its apps that is running) to the usage record, if the cell
+    /// type tracks it, then says whether the group's apps have to be closed. Returns null when they're allowed to keep
+    /// running.
     /// </summary>
     private CloseReason? RecordUsageAndCheckLimits(
-        AppGroup group, CellState cellState, double secondsToCredit, DateOnly today, double dailyBudgetSeconds)
+        AppGroup group, CellState cellState, double secondsToCredit, DateOnly today, double dailyBudgetSeconds,
+        IReadOnlyList<string> runningApps,
+        DateTime now)
     {
         switch (cellState)
         {
@@ -189,14 +192,14 @@ public sealed class EnforcementEngine
                     return CloseReason.BudgetUsedUp; // Already out of budget before this tick.
                 }
 
-                _ledger.Add(today, group.Id, secondsToCredit, countsTowardBudget: true);
+                _ledger.Add(today, group.Id, secondsToCredit, countsTowardBudget: true, runningApps, endedAt: now);
 
                 // This tick's time may have just used up the last of the budget.
                 var budgetNowEmpty = _ledger.GetBudgetSecondsUsed(today, group.Id) >= dailyBudgetSeconds;
                 return budgetNowEmpty ? CloseReason.BudgetUsedUp : null;
 
             default: // Free: record it for stats, but it doesn't touch the budget.
-                _ledger.Add(today, group.Id, secondsToCredit, countsTowardBudget: false);
+                _ledger.Add(today, group.Id, secondsToCredit, countsTowardBudget: false, runningApps, endedAt: now);
                 return null;
         }
     }

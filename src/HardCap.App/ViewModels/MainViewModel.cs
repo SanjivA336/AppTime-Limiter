@@ -61,6 +61,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     public AppSettings Settings { get; }
 
+    /// <summary>Raised after every enforcement check, so a page showing live numbers (Analytics) can refresh.</summary>
+    public event Action? Ticked;
+
     public AppIconService Icons { get; }
 
     public ObservableCollection<GroupViewModel> Groups { get; }
@@ -186,6 +189,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         RefreshStatuses();
+        Ticked?.Invoke();
     }
 
     /// <summary>Recomputes every card's status: Free, Limited with time left, or Blocked.</summary>
@@ -205,6 +209,13 @@ public sealed partial class MainViewModel : ObservableObject
     /// </summary>
     public int BudgetMinutesUsedToday(Guid groupId) =>
         (int)(_ledger.GetBudgetSecondsUsed(BudgetDay.Of(DateTime.Now, Settings.ResetMinutes), groupId) / 60);
+
+    /// <summary>The numbers for the Analytics page: a day, week or month around <paramref name="anchor"/>. Null ids mean every group; an empty set means none.</summary>
+    public PeriodReport BuildUsageReport(ISet<Guid>? selectedGroupIds, AnalyticsView view, DateOnly anchor) =>
+        UsageAnalytics.Build(_ledger, Settings.Groups, selectedGroupIds, DateTime.Now, Settings.ResetMinutes, view, anchor);
+
+    /// <summary>Today, as a budget day: the date a new day of usage is filed under (it changes at the reset time, not at midnight).</summary>
+    public DateOnly CurrentBudgetDay => BudgetDay.Of(DateTime.Now, Settings.ResetMinutes);
 
     /// <summary>Which weekday's budget applies at <paramref name="moment"/>: the budget day it falls in, not always the calendar day.</summary>
     public DayOfWeek BudgetDayOfWeek(DateTime moment) => BudgetDay.DayOfWeekOf(moment, Settings.ResetMinutes);

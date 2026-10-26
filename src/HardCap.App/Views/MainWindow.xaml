@@ -30,6 +30,9 @@
                 <ui:NavigationViewItem Content="Limits"
                                        Icon="{ui:SymbolIcon Timer24}"
                                        TargetPageType="{x:Type views:LimitsPage}" />
+                <ui:NavigationViewItem Content="Analytics"
+                                       Icon="{ui:SymbolIcon DataBarVertical24}"
+                                       TargetPageType="{x:Type views:AnalyticsPage}" />
             </ui:NavigationView.MenuItems>
             <!-- Footer items sit at the bottom of the sidebar, apart from the main pages. -->
             <ui:NavigationView.FooterMenuItems>

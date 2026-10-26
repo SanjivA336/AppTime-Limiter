@@ -13,7 +13,11 @@ public sealed record StartupOptions(
     bool DemoJump,
     string? SelfTestReportPath,
     int EditorTab,
-    bool ScreenshotSettings)
+    bool ScreenshotSettings,
+    bool ScreenshotAnalytics,
+    string? AnalyticsHover,
+    string? AnalyticsView,
+    int AnalyticsBack)
 {
     public const string BackgroundFlag = "--background";
     private const string DataFlag = "--data-dir";
@@ -27,6 +31,10 @@ public sealed record StartupOptions(
     private const string SelfTestFlag = "--self-test";
     private const string EditorTabFlag = "--editor-tab";
     private const string SettingsFlag = "--settings";
+    private const string AnalyticsFlag = "--analytics";
+    private const string AnalyticsHoverFlag = "--analytics-hover";
+    private const string AnalyticsViewFlag = "--analytics-view";
+    private const string AnalyticsBackFlag = "--analytics-back";
 
     public static StartupOptions Parse(string[] args)
     {
@@ -42,7 +50,11 @@ public sealed record StartupOptions(
             DemoJump: Has(args, DemoJumpFlag),
             SelfTestReportPath: ValueOf(args, SelfTestFlag),
             EditorTab: int.TryParse(ValueOf(args, EditorTabFlag), out var tab) ? tab : 0,
-            ScreenshotSettings: Has(args, SettingsFlag));
+            ScreenshotSettings: Has(args, SettingsFlag),
+            ScreenshotAnalytics: Has(args, AnalyticsFlag),
+            AnalyticsHover: ValueOf(args, AnalyticsHoverFlag), // "day,group", e.g. "2,0"
+            AnalyticsView: ValueOf(args, AnalyticsViewFlag),                 // "day", "week" or "month"
+            AnalyticsBack: int.TryParse(ValueOf(args, AnalyticsBackFlag), out var back) ? back : 0); // periods back from now
     }
 
     private static bool Has(string[] args, string flag) => args.Contains(flag, StringComparer.OrdinalIgnoreCase);

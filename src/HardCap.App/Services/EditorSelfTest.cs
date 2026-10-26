@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows.Threading;
 using HardCap.App.ViewModels;
 using HardCap.Core.Models;
+using HardCap.Core.Usage;
 
 namespace HardCap.App.Services;
 
@@ -364,6 +365,82 @@ internal static class EditorSelfTest
             File.Delete(backup);
             main.Settings.ResetMinutes = 0;
         }
+
+        // 19. The Analytics page: choosing groups, the three views, and moving around.
+        var analytics = new AnalyticsViewModel(main);
+        var groupTotal = main.Settings.Groups.Count;
+        Check("the selector lists every group", analytics.Choices.Count == groupTotal);
+        Check("every group is picked to begin with", analytics.AllSelected && analytics.Legend.Count == groupTotal);
+        Check("the button then offers to deselect all", analytics.SelectAllLabel == "Deselect all");
+        Check("it opens on this week", analytics.IsWeekView && analytics.PeriodTitle == "This week" && analytics.CurrentButtonText == "This week");
+        Check("this week shows its dates", analytics.PeriodRange.Contains('–'));
+        Check("the week chart has seven columns, with today the only highlighted one", analytics.Days.Count == 7 && analytics.ChartColumns.Count == 7 && analytics.ChartColumns.Count(c => c.IsHighlighted) == 1);
+        Check("only days that have happened can be opened", analytics.ChartColumns.All(c => c.ClickDate is null || c.ClickDate <= main.CurrentBudgetDay));
+
+        analytics.ToggleAllCommand.Execute(null);
+        Check("deselecting all leaves nothing picked", analytics.NoneSelected && !analytics.AllSelected && analytics.Legend.Count == 0);
+        Check("the button then offers to select all", analytics.SelectAllLabel == "Select all");
+        Check("nothing picked says so", analytics.EmptyTitle == "No groups selected" && !analytics.ShowContent);
+        Check("nothing picked charts nothing", analytics.Days.All(day => day.Groups.Count == 0));
+        analytics.ToggleAllCommand.Execute(null);
+        Check("selecting all picks every group again", analytics.AllSelected && analytics.Legend.Count == groupTotal && analytics.EmptyTitle != "No groups selected");
+
+        analytics.Choices[0].IsSelected = false;
+        Check("a group can be unpicked on its own", !analytics.AllSelected && !analytics.NoneSelected && analytics.Legend.Count == groupTotal - 1);
+        analytics.ToggleAllCommand.Execute(null);
+        Check("with some picked, the button picks the rest", analytics.AllSelected);
+        analytics.ToggleAllCommand.Execute(null);
+        analytics.Choices[1].IsSelected = true;
+        Check("from nothing, one group can be picked", analytics.Legend.Count == 1 && analytics.Days[0].Groups.Count == 1);
+        analytics.Choices[2].IsSelected = true;
+        Check("and another added", analytics.Legend.Count == 2 && analytics.Days[0].Groups.Count == 2);
+        analytics.ToggleAllCommand.Execute(null); // two are picked, so this picks the rest
+
+        Check("the horizontal chart has a bar for each group", analytics.Rows.Count == groupTotal);
+        analytics.ShowApps = true;
+        var appTotal = main.Settings.Groups.Sum(g => g.Processes.Count);
+        Check("switching to apps shows a bar for each app", analytics.Rows.Count == appTotal && analytics.Rows.All(r => r.HasSubtitle));
+        analytics.ShowApps = false;
+
+        // The three views.
+        analytics.SelectedViewChoice = analytics.ViewChoices.First(c => c.View == AnalyticsView.Day);
+        Check("the day view is named for today", analytics.IsDayView && analytics.PeriodTitle == "Today" && analytics.CurrentButtonText == "Today" && analytics.Days.Count == 1);
+        Check("the day view has a column for each hour of the day", analytics.ChartColumns.Count == 24 && analytics.ChartColumns[0].Label == "12a" && analytics.ChartColumns[15].Label == "3p");
+        Check("the day view highlights the current hour only", analytics.ChartColumns.Count(c => c.IsHighlighted) == 1);
+        Check("hours are not clickable", analytics.ChartColumns.All(c => c.ClickDate is null));
+        Check("hours have readable names", analytics.ChartColumns[15].Title == "3 PM to 4 PM" && analytics.ChartColumns[23].Title == "11 PM to 12 AM");
+        analytics.SelectedViewChoice = analytics.ViewChoices.First(c => c.View == AnalyticsView.Month);
+        Check("the month view is named for this month", analytics.IsMonthView && analytics.PeriodTitle == "This month" && analytics.CurrentButtonText == "This month");
+        Check("the month shows its name and every day", analytics.PeriodRange.Contains(DateTime.Now.Year.ToString()) && analytics.Days.Count == DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month));
+        analytics.SelectedViewChoice = analytics.ViewChoices.First(c => c.View == AnalyticsView.Week);
+
+        // Moving around: forward stops at the current period, but going back never does.
+        Check("you can't go forward from the current week", !analytics.NextCommand.CanExecute(null) && !analytics.CurrentCommand.CanExecute(null));
+        analytics.PreviousCommand.Execute(null);
+        Check("going back shows last week", analytics.PeriodTitle == "Last week" && !analytics.IsCurrentPeriod && analytics.ChartColumns.All(c => !c.IsHighlighted));
+        Check("going forward and the jump button are then possible", analytics.NextCommand.CanExecute(null) && analytics.CurrentCommand.CanExecute(null));
+        analytics.NextCommand.Execute(null);
+        Check("going forward again lands on this week", analytics.PeriodTitle == "This week");
+
+        for (var step = 0; step < 80; step++)
+        {
+            analytics.PreviousCommand.Execute(null);
+        }
+
+        Check("going back has no limit, and an empty week says so", analytics.PeriodTitle == "80 weeks ago" && analytics.EmptyTitle.StartsWith("No data for") && !analytics.ShowContent);
+        analytics.CurrentCommand.Execute(null);
+        Check("the jump button goes straight back to this week", analytics.PeriodTitle == "This week" && analytics.IsCurrentPeriod);
+
+        // Clicking a day opens it; clicking a week number opens that week.
+        var today = main.CurrentBudgetDay;
+        analytics.OpenDay(today.AddDays(-2));
+        Check("clicking a day opens the day view for it", analytics.IsDayView && analytics.Anchor == today.AddDays(-2) && analytics.PeriodTitle == "2 days ago");
+        analytics.OpenDay(today.AddDays(-4));
+        Check("clicking another day while on the day view moves to it", analytics.Anchor == today.AddDays(-4) && analytics.PeriodTitle == "4 days ago");
+        var lastMonday = UsageAnalytics.WeekStartOf(today).AddDays(-7);
+        analytics.OpenWeek(lastMonday);
+        Check("clicking a week number opens that week", analytics.IsWeekView && analytics.PeriodTitle == "Last week" && analytics.Days[0].Date == lastMonday);
+        analytics.CurrentCommand.Execute(null);
 
         // 18. The quit window opens, counts down, and offers the choice at the end.
         var exitWindow = new Views.ExitWaitWindow(1) { WindowStartupLocation = System.Windows.WindowStartupLocation.Manual, Left = 100, Top = 0 };

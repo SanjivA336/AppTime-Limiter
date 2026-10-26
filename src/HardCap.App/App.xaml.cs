@@ -194,7 +194,25 @@ public partial class App : Application
         _window.Activate();
 
         Window windowToCapture = _window;
-        if (options.ScreenshotSettings)
+        if (options.ScreenshotAnalytics)
+        {
+            // --analytics: show the Analytics page instead of Limits.
+            Views.AnalyticsPage.InitialView = Enum.TryParse<HardCap.Core.Usage.AnalyticsView>(options.AnalyticsView, ignoreCase: true, out var view) ? view : null;
+            Views.AnalyticsPage.InitialBack = options.AnalyticsBack;
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, () => _window.ShowAnalytics());
+            if (options.AnalyticsHover is { } hoverSpec)
+            {
+                // --analytics-hover: after the page has drawn, show part of the chart as if it were pointed at.
+                var wait = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+                wait.Tick += (_, _) =>
+                {
+                    wait.Stop();
+                    _window.PreviewAnalyticsHover(hoverSpec);
+                };
+                wait.Start();
+            }
+        }
+        else if (options.ScreenshotSettings)
         {
             // --settings: show the Settings page instead of Limits (after the window has finished opening on Limits).
             _ = Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, () => _window.ShowSettings());
