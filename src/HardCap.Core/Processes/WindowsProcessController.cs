@@ -24,6 +24,35 @@ public sealed class WindowsProcessController : IProcessController
         return names;
     }
 
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    /// <summary>
+    /// The process that owns the window being used right now. Needs no special rights, even for programs running as
+    /// administrator. Null when nothing is in front (the lock screen, a Windows security prompt) or it can't be read.
+    /// </summary>
+    public string? GetForegroundProcessName()
+    {
+        var window = GetForegroundWindow();
+        if (window == IntPtr.Zero || GetWindowThreadProcessId(window, out var processId) == 0 || processId == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var process = Process.GetProcessById((int)processId);
+            return process.ProcessName;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or Win32Exception)
+        {
+            return null; // it closed between the two calls
+        }
+    }
+
     public async Task<IReadOnlyList<string>> CloseAsync(
         IReadOnlyCollection<string> processNames, CancellationToken cancellationToken = default)
     {

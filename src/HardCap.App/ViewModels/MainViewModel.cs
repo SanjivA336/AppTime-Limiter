@@ -207,8 +207,11 @@ public sealed partial class MainViewModel : ObservableObject
     /// Whole minutes of the current budget day's budget that this one group has used so far. (A budget day starts at the
     /// reset time, which is midnight unless the user changed it.)
     /// </summary>
-    public int BudgetMinutesUsedToday(Guid groupId) =>
-        (int)(_ledger.GetBudgetSecondsUsed(BudgetDay.Of(DateTime.Now, Settings.ResetMinutes), groupId) / 60);
+    public int BudgetMinutesUsedToday(Guid groupId, CountMode? mode = null) =>
+        (int)(_ledger.GetBudgetSecondsUsed(
+            BudgetDay.Of(DateTime.Now, Settings.ResetMinutes),
+            groupId,
+            mode ?? Settings.Groups.FirstOrDefault(g => g.Id == groupId)?.CountMode ?? CountMode.WhileRunning) / 60);
 
     /// <summary>The numbers for the Analytics page: a day, week or month around <paramref name="anchor"/>. Null ids mean every group; an empty set means none.</summary>
     public PeriodReport BuildUsageReport(ISet<Guid>? selectedGroupIds, AnalyticsView view, DateOnly anchor) =>
@@ -224,7 +227,7 @@ public sealed partial class MainViewModel : ObservableObject
     private double BudgetSecondsLeft(AppGroup group, DateTime now)
     {
         var budgetSeconds = group.BudgetMinutesFor(BudgetDayOfWeek(now)) * 60.0; // this budget day's amount; each day can differ
-        var usedSeconds = _ledger.GetBudgetSecondsUsed(BudgetDay.Of(now, Settings.ResetMinutes), group.Id);
+        var usedSeconds = _ledger.GetBudgetSecondsUsed(BudgetDay.Of(now, Settings.ResetMinutes), group.Id, group.CountMode);
         return Math.Max(0, budgetSeconds - usedSeconds);
     }
 

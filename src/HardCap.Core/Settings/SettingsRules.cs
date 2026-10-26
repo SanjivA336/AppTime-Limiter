@@ -43,6 +43,11 @@ public static class SettingsRules
             group.WarningMinutes = SanitizeWarnings(group.WarningMinutes);
             group.LockSeconds = Math.Clamp(group.LockSeconds, 0, AppGroup.MaxLockSeconds);
             group.GraceSeconds = Math.Clamp(group.GraceSeconds, 0, AppGroup.MaxGraceSeconds);
+            if (!Enum.IsDefined(group.CountMode))
+            {
+                group.CountMode = CountMode.WhileRunning; // an unknown value plays it safe: count everything
+            }
+
             if (!group.IsPaused)
             {
                 group.PausedUntil = null; // an end time means nothing without a pause

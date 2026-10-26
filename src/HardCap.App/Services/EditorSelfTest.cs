@@ -290,6 +290,20 @@ internal static class EditorSelfTest
         resuming.Save();
         Check("choosing \"not paused\" and saving resumes the group", !real.IsPausedAt(DateTime.Now));
 
+        // 14b. Count time: what uses up the budget.
+        real.CountMode = CountMode.WhileRunning;
+        var counting = new GroupEditorViewModel(main, card);
+        Check("a group counts whenever it is running by default", counting.CountsWhileRunning && !counting.CountsWhileInFront);
+        counting.CountsWhileInFront = true;
+        Check("choosing in front changes the draft, and flips the other choice", counting.Draft.CountMode == CountMode.WhileInFront && !counting.CountsWhileRunning);
+        Check("the count mode is not real until it is saved", real.CountMode == CountMode.WhileRunning && counting.HasChanges);
+        counting.Revert();
+        Check("revert puts the count mode back", counting.CountsWhileRunning && counting.Draft.CountMode == CountMode.WhileRunning);
+        counting.CountsWhileRunning = false;
+        counting.Save();
+        Check("saving makes the count mode real", real.CountMode == CountMode.WhileInFront);
+        real.CountMode = CountMode.WhileRunning;
+
         // 15. The countdown only runs while its window is the active one.
         var waiting2 = new WaitCountdown(30);
         waiting2.SetWindowActive(false);

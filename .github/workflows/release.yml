@@ -38,6 +38,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "${{ github.ref_name }}"
+          # A release made by hand (for example one with the installer attached) already exists: leave it alone.
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) { Write-Host "Release $tag already exists, so no draft is made."; exit 0 }
           $flags = @('--draft', '--generate-notes', '--title', $tag)
           # Anything below 1.0 is marked as a pre-release.
           if ($tag -like 'v0.*') { $flags += '--prerelease' }

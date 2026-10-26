@@ -1,10 +1,14 @@
 using System.Globalization;
 using System.Text.Json;
+using HardCap.Core.Models;
 
 namespace HardCap.Core.Usage;
 
-/// <summary>Seconds one group was running on one budget day, split by whether it counted toward the budget.</summary>
-public sealed class DayUsage
+/// <summary>
+/// One way of counting a group's time on one day: seconds split by whether they counted toward the budget, plus the same
+/// time for each app and for each hour of the clock. A day keeps two of these: one for "running" and one for "in front".
+/// </summary>
+public class UsageTally
 {
     /// <summary>Seconds during Limited cells; these draw down the shared daily budget.</summary>
     public double LimitedSeconds { get; set; }
@@ -13,7 +17,7 @@ public sealed class DayUsage
     public double FreeSeconds { get; set; }
 
     /// <summary>
-    /// Seconds each of the group's apps was running (by process name), for the Analytics page. Each running app is credited
+    /// Seconds each of the group's apps was counted (by process name), for the Analytics page. Each counted app is credited
     /// the whole time that passed, so these can add up to more than the group's own time when several run together.
     /// Days recorded before this existed have none.
     /// </summary>
@@ -27,6 +31,71 @@ public sealed class DayUsage
 
     /// <summary>The same for each app: its seconds in each hour of the clock. Null for days recorded before hours were kept.</summary>
     public Dictionary<string, double[]>? AppHourly { get; set; }
+
+    /// <summary>Adds a stretch of time that ended at <paramref name="endedAt"/> (when given, it is also filed by hour).</summary>
+    public void Credit(double seconds, bool countsTowardBudget, IReadOnlyList<string> apps, DateTime? endedAt)
+    {
+        if (countsTowardBudget)
+        {
+            LimitedSeconds += seconds;
+        }
+        else
+        {
+            FreeSeconds += seconds;
+        }
+
+        Processes ??= new Dictionary<string, double>();
+        foreach (var process in apps)
+        {
+            Processes[process] = Processes.GetValueOrDefault(process) + seconds;
+        }
+
+        if (endedAt is DateTime end)
+        {
+            AddHourly(seconds, apps, end);
+        }
+    }
+
+    /// <summary>Files a stretch of time under the clock hours it covers, splitting it where it crosses the top of an hour.</summary>
+    private void AddHourly(double seconds, IReadOnlyList<string> apps, DateTime endedAt)
+    {
+        Hourly ??= new double[24];
+        AppHourly ??= new Dictionary<string, double[]>();
+
+        var cursor = endedAt.AddSeconds(-seconds);
+        while (cursor < endedAt)
+        {
+            var nextHour = new DateTime(cursor.Year, cursor.Month, cursor.Day, cursor.Hour, 0, 0).AddHours(1);
+            var segmentEnd = nextHour < endedAt ? nextHour : endedAt;
+            var part = (segmentEnd - cursor).TotalSeconds;
+
+            Hourly[cursor.Hour] += part;
+            foreach (var app in apps)
+            {
+                if (!AppHourly.TryGetValue(app, out var hours) || hours.Length != 24)
+                {
+                    AppHourly[app] = hours = new double[24];
+                }
+
+                hours[cursor.Hour] += part;
+            }
+
+            cursor = segmentEnd;
+        }
+    }
+}
+
+/// <summary>
+/// One group's usage on one budget day. The fields inherited from <see cref="UsageTally"/> are the time its apps were
+/// <b>running</b> (this is what usage.json has always held); <see cref="Front"/> is the time one of them was <b>in front</b>.
+/// </summary>
+public sealed class DayUsage : UsageTally
+{
+    /// <summary>
+    /// The same amounts counting only the moments one of the group's apps owned the window being used. Null for days
+    /// recorded before this was kept, which is why a budget reading it falls back to the running time for those days.
+    /// </summary>
+    public UsageTally? Front { get; set; }
 }
 
 /// <summary>
@@ -57,13 +126,20 @@ public sealed class UsageLedger
     /// The clock time the credited stretch ended. When given, the time is also filed under the hours of the clock it covers
     /// (split at the hour if it crosses one). Without it, no hourly detail is kept.
     /// </param>
+    /// <param name="trackInFront">
+    /// True to keep the "in front" tally as well. The running tally is always credited; the in-front one gets the same
+    /// time only when <paramref name="inFrontProcess"/> says one of the group's apps owned the window being used.
+    /// </param>
+    /// <param name="inFrontProcess">The group's app that was in front during this stretch, or null if none was.</param>
     public void Add(
         DateOnly date,
         Guid groupId,
         double seconds,
         bool countsTowardBudget,
         IEnumerable<string>? runningProcesses = null,
-        DateTime? endedAt = null)
+        DateTime? endedAt = null,
+        bool trackInFront = false,
+        string? inFrontProcess = null)
     {
         if (seconds <= 0)
         {
@@ -81,63 +157,34 @@ public sealed class UsageLedger
             groups[groupId] = usage = new DayUsage();
         }
 
-        if (countsTowardBudget)
+        if (trackInFront && usage.Front is null)
         {
-            usage.LimitedSeconds += seconds;
-        }
-        else
-        {
-            usage.FreeSeconds += seconds;
+            // First time in-front time is kept for this day. Whatever running time is already on record has no in-front
+            // answer, so assume all of it was in front: the budget then charges more, never less, than the truth.
+            usage.Front = new UsageTally { LimitedSeconds = usage.LimitedSeconds, FreeSeconds = usage.FreeSeconds };
         }
 
         var apps = runningProcesses?.ToList() ?? new List<string>();
-        usage.Processes ??= new Dictionary<string, double>();
-        foreach (var process in apps)
-        {
-            usage.Processes[process] = usage.Processes.GetValueOrDefault(process) + seconds;
-        }
+        usage.Credit(seconds, countsTowardBudget, apps, endedAt);
 
-        if (endedAt is DateTime end)
+        if (trackInFront && inFrontProcess is not null)
         {
-            AddHourly(usage, seconds, apps, end);
+            usage.Front!.Credit(seconds, countsTowardBudget, new[] { inFrontProcess }, endedAt);
         }
 
         IsDirty = true;
     }
 
-    /// <summary>Files a stretch of time under the clock hours it covers, splitting it where it crosses the top of an hour.</summary>
-    private static void AddHourly(DayUsage usage, double seconds, List<string> apps, DateTime endedAt)
-    {
-        usage.Hourly ??= new double[24];
-        usage.AppHourly ??= new Dictionary<string, double[]>();
-
-        var cursor = endedAt.AddSeconds(-seconds);
-        while (cursor < endedAt)
-        {
-            var nextHour = new DateTime(cursor.Year, cursor.Month, cursor.Day, cursor.Hour, 0, 0).AddHours(1);
-            var segmentEnd = nextHour < endedAt ? nextHour : endedAt;
-            var part = (segmentEnd - cursor).TotalSeconds;
-
-            usage.Hourly[cursor.Hour] += part;
-            foreach (var app in apps)
-            {
-                if (!usage.AppHourly.TryGetValue(app, out var hours) || hours.Length != 24)
-                {
-                    usage.AppHourly[app] = hours = new double[24];
-                }
-
-                hours[cursor.Hour] += part;
-            }
-
-            cursor = segmentEnd;
-        }
-    }
-
     /// <summary>
-    /// The Limited seconds this one group has used on <paramref name="date"/>: what its own daily budget has spent.
-    /// Other groups' time is not included, because every group has its own budget.
+    /// The Limited seconds this one group has used on <paramref name="date"/>: what its own daily budget has spent, counting
+    /// either every moment its apps ran or only the moments one was in front. Other groups' time is not included, because
+    /// every group has its own budget. Days with no in-front record (older days) answer with the running time.
     /// </summary>
-    public double GetBudgetSecondsUsed(DateOnly date, Guid groupId) => GetUsage(date, groupId).LimitedSeconds;
+    public double GetBudgetSecondsUsed(DateOnly date, Guid groupId, CountMode mode = CountMode.WhileRunning)
+    {
+        var usage = GetUsage(date, groupId);
+        return mode == CountMode.WhileInFront && usage.Front is not null ? usage.Front.LimitedSeconds : usage.LimitedSeconds;
+    }
 
     /// <summary>
     /// Deletes every day before <paramref name="cutoff"/>. Returns how many days were removed (the file is rewritten at

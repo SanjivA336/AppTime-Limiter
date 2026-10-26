@@ -66,7 +66,8 @@ public sealed class EnforcementEngine
         _ledger = ledger;
     }
 
-    public TickResult Tick(AppSettings settings, DateTime now, IReadOnlyCollection<string> runningProcessNames)
+    public TickResult Tick(
+        AppSettings settings, DateTime now, IReadOnlyCollection<string> runningProcessNames, string? foregroundProcessName = null)
     {
         var secondsToCredit = SecondsToCreditSinceLastTick(now);
 
@@ -98,7 +99,11 @@ public sealed class EnforcementEngine
 
             // Each group has its own budget for each day (and each day can have a different one).
             var dailyBudgetSeconds = group.BudgetMinutesFor(budgetDayOfWeek) * 60.0;
-            var closeReason = RecordUsageAndCheckLimits(group, cellState, secondsToCredit, today, dailyBudgetSeconds, runningFromThisGroup, now);
+            // The group is "in front" when the window being used belongs to one of its running apps.
+            var inFrontApp = foregroundProcessName is null
+                ? null
+                : runningFromThisGroup.FirstOrDefault(app => ProcessNames.Comparer.Equals(app, ProcessNames.Normalize(foregroundProcessName)));
+            var closeReason = RecordUsageAndCheckLimits(group, cellState, secondsToCredit, today, dailyBudgetSeconds, runningFromThisGroup, inFrontApp, now);
             if (closeReason is CloseReason reason)
             {
                 if (ShouldCloseNow(group, reason, runningFromThisGroup, now, alerts))
@@ -179,27 +184,29 @@ public sealed class EnforcementEngine
     private CloseReason? RecordUsageAndCheckLimits(
         AppGroup group, CellState cellState, double secondsToCredit, DateOnly today, double dailyBudgetSeconds,
         IReadOnlyList<string> runningApps,
+        string? inFrontApp,
         DateTime now)
     {
+        // Both ways of counting are always recorded; the group's own setting only picks which one the budget reads.
         switch (cellState)
         {
             case CellState.Blocked:
                 return CloseReason.Blocked;
 
             case CellState.Limited:
-                if (_ledger.GetBudgetSecondsUsed(today, group.Id) >= dailyBudgetSeconds)
+                if (_ledger.GetBudgetSecondsUsed(today, group.Id, group.CountMode) >= dailyBudgetSeconds)
                 {
                     return CloseReason.BudgetUsedUp; // Already out of budget before this tick.
                 }
 
-                _ledger.Add(today, group.Id, secondsToCredit, countsTowardBudget: true, runningApps, endedAt: now);
+                _ledger.Add(today, group.Id, secondsToCredit, countsTowardBudget: true, runningApps, endedAt: now, trackInFront: true, inFrontProcess: inFrontApp);
 
                 // This tick's time may have just used up the last of the budget.
-                var budgetNowEmpty = _ledger.GetBudgetSecondsUsed(today, group.Id) >= dailyBudgetSeconds;
+                var budgetNowEmpty = _ledger.GetBudgetSecondsUsed(today, group.Id, group.CountMode) >= dailyBudgetSeconds;
                 return budgetNowEmpty ? CloseReason.BudgetUsedUp : null;
 
             default: // Free: record it for stats, but it doesn't touch the budget.
-                _ledger.Add(today, group.Id, secondsToCredit, countsTowardBudget: false, runningApps, endedAt: now);
+                _ledger.Add(today, group.Id, secondsToCredit, countsTowardBudget: false, runningApps, endedAt: now, trackInFront: true, inFrontProcess: inFrontApp);
                 return null;
         }
     }
@@ -241,7 +248,7 @@ public sealed class EnforcementEngine
 
         // No need to look further ahead than the earliest warning.
         var lookAhead = TimeSpan.FromMinutes(group.WarningMinutes.Max() + 1);
-        var usedToday = _ledger.GetBudgetSecondsUsed(today, group.Id);
+        var usedToday = _ledger.GetBudgetSecondsUsed(today, group.Id, group.CountMode);
         var cutoff = LimitForecast.Next(group.Schedule, now, usedToday, group.BudgetMinutesFor, lookAhead, resetMinutes);
 
         var newlyDue = new List<int>();

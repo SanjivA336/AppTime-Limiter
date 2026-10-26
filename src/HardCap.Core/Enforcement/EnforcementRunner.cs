@@ -45,7 +45,7 @@ public sealed class EnforcementRunner
         try
         {
             var settings = _getSettings();
-            var result = _engine.Tick(settings, now, _processes.GetRunningProcessNames());
+            var result = _engine.Tick(settings, now, _processes.GetRunningProcessNames(), _processes.GetForegroundProcessName());
 
             foreach (var alert in result.Alerts)
             {

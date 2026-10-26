@@ -8,7 +8,7 @@ Set your limits once. Windows keeps you to them.
 
 HardCap closes the apps you choose when you've hit your daily time or you're outside your allowed hours. It started as a way to keep my own gaming in check, but it works with any app.
 
-> **Get it:** download `HardCap-Setup-1.0.0.exe` from the [latest release](https://github.com/SanjivA336/AppTime-Limiter/releases/latest) and run it. It installs for your account only (no admin prompt) and shows up in Add or remove programs. Windows may warn about an unknown publisher, because the installer isn't code-signed.
+> **Get it:** download `HardCap-Setup-1.1.0.exe` from the [latest release](https://github.com/SanjivA336/AppTime-Limiter/releases/latest) and run it. It installs for your account only (no admin prompt) and shows up in Add or remove programs. Windows may warn about an unknown publisher, because the installer isn't code-signed.
 
 ## How it works
 
@@ -38,6 +38,7 @@ When an app has to go, it's asked nicely first so it can save. If it hasn't clos
 - A paint-it-yourself weekly grid, plus "copy this day to…" (it copies the day's budget too) so you don't repeat yourself
 - Warnings before time runs out, and an optional per-group **grace period** (up to 5 minutes) to save when a limit starts while an app is running. An app opened during a block is closed straight away
 - **Pause** a group for a while (30 minutes, a few hours, until a day and time, or until you resume it). A paused group is treated as Free. Pausing lives in the group's settings, so it waits behind the lock
+- **Count time** (per group): the budget can be spent whenever the group's apps are running (the default), or only while one of them is in front, which stops background helpers and a forgotten launcher from eating your budget. Both amounts are always recorded, closing an app never depends on which you pick, and Microsoft Store apps are not recognised as "in front".
 - A **Settings** page (bottom of the sidebar): choose when a new day starts (say 4 AM if you stay up late), set a general wait before opening groups, the settings, or quitting, with optional **open hours** when there is no wait, and export or import your settings
 - An **Analytics** page, in the style of Screen Time. Pick any mix of groups (or none, or "Select all"), and look at a **day**, a **week** or a **month**, stepping back as far as you like (it says "No data for…" when a period is empty). Each view has a headline number with how it compares with earlier weeks, a few totals, and a bar for each group or app:
   - **Day:** stacked columns for each hour of the day, split by group (hour-by-hour detail is recorded from the version that added it onward)
@@ -74,7 +75,7 @@ Want a standalone build?
 dotnet publish src/HardCap.App -c Release -r win-x64 --self-contained false -o publish
 ```
 
-Want the installer? Install [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`), then run `tools/build-installer.ps1 -Version 1.0.0`. It publishes the app and writes `artifacts/HardCap-Setup-1.0.0.exe`. The script is `installer/HardCap.iss`; never change its `AppId`, or an upgrade would install a second copy.
+Want the installer? Install [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`), then run `tools/build-installer.ps1 -Version 1.1.0`. It publishes the app and writes `artifacts/HardCap-Setup-1.1.0.exe`. The script is `installer/HardCap.iss`; never change its `AppId`, or an upgrade would install a second copy.
 
 Working in VS Code? Press **F5**. The "dev data" profile keeps its settings in a throwaway `.dev-data` folder and never registers itself to start with Windows, so it can't mess with your real setup. Tasks for build, test and publish are in the Terminal > Run Task menu.
 
@@ -85,7 +86,7 @@ If you turn on *Start with Windows* and later move the `.exe`, just switch the s
 Everything is in `%LOCALAPPDATA%\HardCap\`:
 
 - `settings.json`: your groups, with each group's schedule, warnings, lock, grace period, pause and daily budgets, plus the general settings (new-day time, wait, open hours). Older files are upgraded automatically
-- `usage.json`: how long each group, and each of its apps, has been used, day by day and hour by hour. Days older than 3 months are deleted automatically
+- `usage.json`: how long each group, and each of its apps, has been running and how long one of them was in front, day by day and hour by hour. Days older than 3 months are deleted automatically
 - `app.log`: a small log, handy if something looks off
 
 Settings are plain text, so you can edit them by hand. Each day's schedule is 48 letters, one per half hour from midnight: `F` is Free, `L` is Limited, `B` is Blocked. Days are listed Sunday first. If the app can't read something, it plays it safe and treats it as Blocked.
@@ -113,6 +114,7 @@ This is a self-control tool, not a security system.
 - [x] Browse for or search any app, not only running ones
 - [x] A grace period before an app is closed
 - [x] Pause a group for a while
+- [x] Count time only while an app is in front
 - [x] A custom time for the day to reset
 - [x] A settings page with a wait (and open hours) before opening groups, settings, or quitting
 - [x] Export and import your settings
@@ -135,6 +137,10 @@ tests/HardCap.Tests   Tests for the brains
 The decisions about what to close and when to warn live in `EnforcementEngine` and `LimitForecast`. They're told the time and the running apps rather than looking them up, which is why the tests can try any scenario without waiting around for the real clock.
 
 ## Patch notes
+
+**v1.1.0**: Each group can count its budget only while one of its apps is in front (both amounts are recorded). Adds an installer.
+
+**v1.0.0**: First stable release.
 
 **v0**: First working version. Groups, weekly schedule, per-group daily budgets, warnings, locks, grace periods, pausing, a settings page (new-day time, waits and open hours, export/import), searching and browsing for apps, an analytics page, closing apps, tray icon.
 

@@ -58,6 +58,15 @@ public sealed class WindowsProcessControllerTests : IDisposable
     }
 
     [Fact]
+    public void Asking_for_the_front_window_works_without_special_rights()
+    {
+        // Whatever is in front on the machine running the tests (or nothing, on a locked or headless one), it must not throw.
+        var name = _controller.GetForegroundProcessName();
+
+        Assert.True(name is null or { Length: > 0 });
+    }
+
+    [Fact]
     public void Running_process_names_include_a_process_we_started()
     {
         if (!OperatingSystem.IsWindows())

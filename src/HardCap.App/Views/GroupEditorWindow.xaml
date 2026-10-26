@@ -175,6 +175,19 @@
                             </Border>
                         </Grid>
 
+                        <!-- Count time: what uses up the budget -->
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SectionTitle}" Text="Count time" />
+                                <TextBlock Style="{StaticResource Hint}"
+                                           Text="Choose what uses up this group's budget; both are always recorded, and closing apps never depends on it." />
+                                <RadioButton GroupName="CountMode" Content="Whenever it's running"
+                                             IsChecked="{Binding CountsWhileRunning, Mode=TwoWay}" />
+                                <RadioButton GroupName="CountMode" Content="Only while it's in front (time in the background doesn't count)"
+                                             IsChecked="{Binding CountsWhileInFront, Mode=TwoWay}" />
+                            </StackPanel>
+                        </Border>
+
                         <!-- The lock: how long to wait the next time this group is opened -->
                         <Border Style="{StaticResource Card}">
                             <StackPanel>

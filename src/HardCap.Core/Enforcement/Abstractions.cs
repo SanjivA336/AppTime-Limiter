@@ -6,6 +6,12 @@ public interface IProcessController
     /// <summary>Names (no ".exe") of every process currently running.</summary>
     IReadOnlyCollection<string> GetRunningProcessNames();
 
+    /// <summary>
+    /// The name (no ".exe") of the process that owns the window being used right now, or null if there isn't one. A fake
+    /// that doesn't care about focus can leave this as it is.
+    /// </summary>
+    string? GetForegroundProcessName() => null;
+
     /// <summary>Closes every running process with one of these names. Returns the names that could not be closed.</summary>
     Task<IReadOnlyList<string>> CloseAsync(IReadOnlyCollection<string> processNames, CancellationToken cancellationToken = default);
 }

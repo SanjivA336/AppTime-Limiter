@@ -10,7 +10,7 @@ public sealed class AppSettings
     /// 3 = every group has its own budget for each day. 4 = adds the reset time, the settings wait and open hours,
     /// and each group's grace period and pause. Older files are upgraded automatically when they are loaded.
     /// </summary>
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     /// <summary>The longest wait that can be set for the settings and for quitting: five minutes (like a group's lock).</summary>
     public const int MaxWaitSeconds = AppGroup.MaxLockSeconds;

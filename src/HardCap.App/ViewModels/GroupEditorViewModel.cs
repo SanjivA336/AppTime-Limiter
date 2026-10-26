@@ -186,6 +186,32 @@ public sealed partial class GroupEditorViewModel : ObservableObject
         NotifyEdited();
     }
 
+    /// <summary>True when the budget counts only the time one of the group's apps is in front (the other choice counts all the time it is running).</summary>
+    public bool CountsWhileInFront
+    {
+        get => Draft.CountMode == CountMode.WhileInFront;
+        set
+        {
+            var mode = value ? CountMode.WhileInFront : CountMode.WhileRunning;
+            if (Draft.CountMode == mode)
+            {
+                return;
+            }
+
+            Draft.CountMode = mode;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CountsWhileRunning));
+            NotifyEdited();
+        }
+    }
+
+    /// <summary>The other half of the pair, so two radio buttons can share one setting.</summary>
+    public bool CountsWhileRunning
+    {
+        get => !CountsWhileInFront;
+        set => CountsWhileInFront = !value;
+    }
+
     /// <summary>Stops the countdown timer. Called when the window closes.</summary>
     public void StopCountdown() => Countdown?.Stop();
 
@@ -557,6 +583,8 @@ public sealed partial class GroupEditorViewModel : ObservableObject
         OnPropertyChanged(nameof(Schedule));
         Lock.Refresh();
         Grace.Refresh();
+        OnPropertyChanged(nameof(CountsWhileInFront));
+        OnPropertyChanged(nameof(CountsWhileRunning));
         LoadPauseFromDraft();
         NotifyEdited();
     }
@@ -579,7 +607,7 @@ public sealed partial class GroupEditorViewModel : ObservableObject
         }
 
         var budgetDay = _main.BudgetDayOfWeek(DateTime.Now);
-        UsedTodayText = $"Used today ({budgetDay}): {_main.BudgetMinutesUsedToday(Draft.Id)} of {Draft.BudgetMinutesFor(budgetDay)} min";
+        UsedTodayText = $"Used today ({budgetDay}): {_main.BudgetMinutesUsedToday(Draft.Id, Draft.CountMode)} of {Draft.BudgetMinutesFor(budgetDay)} min";
     }
 
     /// <summary>The note under the budget boxes, including when budgets refill ("midnight", or a time such as "4:00 AM").</summary>

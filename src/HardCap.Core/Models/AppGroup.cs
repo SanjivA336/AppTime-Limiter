@@ -56,6 +56,12 @@ public sealed class AppGroup
     public bool IsPausedAt(DateTime now) => IsPaused && (PausedUntil is null || now < PausedUntil);
 
     /// <summary>
+    /// Whether the budget is spent whenever the group's apps are running, or only while one of them is in front. Both
+    /// amounts are always recorded; this only picks which one the budget reads. Closing an app never depends on it.
+    /// </summary>
+    public CountMode CountMode { get; set; } = CountMode.WhileRunning;
+
+    /// <summary>
     /// How many minutes of Limited time this group allows on each day, indexed by <see cref="DayOfWeek"/> (0 = Sunday).
     /// Each group has its own, and only its own Limited time is counted against it. Read it with
     /// <see cref="BudgetMinutesFor"/> and change it with <see cref="SetBudgetMinutes"/>.
@@ -95,6 +101,7 @@ public sealed class AppGroup
         GraceSeconds = GraceSeconds,
         IsPaused = IsPaused,
         PausedUntil = PausedUntil,
+        CountMode = CountMode,
         BudgetMinutesByDay = (int[])(BudgetMinutesByDay ?? NewBudgets(DefaultDailyBudgetMinutes)).Clone(),
     };
 
@@ -110,6 +117,7 @@ public sealed class AppGroup
         GraceSeconds = other.GraceSeconds;
         IsPaused = other.IsPaused;
         PausedUntil = other.PausedUntil;
+        CountMode = other.CountMode;
         BudgetMinutesByDay = (int[])(other.BudgetMinutesByDay ?? NewBudgets(DefaultDailyBudgetMinutes)).Clone();
     }
 
@@ -122,6 +130,7 @@ public sealed class AppGroup
         && GraceSeconds == other.GraceSeconds
         && IsPaused == other.IsPaused
         && PausedUntil == other.PausedUntil
+        && CountMode == other.CountMode
         && Processes.SequenceEqual(other.Processes)
         && WarningMinutes.SequenceEqual(other.WarningMinutes)
         && BudgetMinutesByDay.SequenceEqual(other.BudgetMinutesByDay)
