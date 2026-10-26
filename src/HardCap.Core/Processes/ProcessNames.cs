@@ -35,6 +35,16 @@ public static class ProcessNames
 
     public static bool IsProtected(string name) => Protected.Contains(Normalize(name));
 
+    /// <summary>Names for a sentence: "Warframe", "Warframe and Discord", "A, B and C", or "A, B and 2 more" past three.</summary>
+    public static string Join(IReadOnlyList<string> names) => names.Count switch
+    {
+        0 => "the app",
+        1 => names[0],
+        2 => $"{names[0]} and {names[1]}",
+        3 => $"{names[0]}, {names[1]} and {names[2]}",
+        _ => $"{names[0]}, {names[1]} and {names.Count - 2} more",
+    };
+
     /// <summary>
     /// Anti-cheat programs that run in the background the whole time the computer is on, not only while the game is open.
     /// (Riot Vanguard, Easy Anti-Cheat, BattlEye.)
@@ -57,12 +67,12 @@ public static class ProcessNames
 
         if (KnownAlwaysRunning.Contains(normalized))
         {
-            return "Anti-cheat software. It runs all the time, so it would use up your budget even when you aren't playing.";
+            return "Anti-cheat software that runs all the time, so it would use up your budget even when you aren't playing.";
         }
 
         var looksLikeHelper = HelperWords.Any(word => normalized.Contains(word, StringComparison.OrdinalIgnoreCase));
         return looksLikeHelper
-            ? "Looks like a helper or updater. These often run in the background all day, which would use up your budget."
+            ? "Looks like a background helper or updater that may run all day and use up your budget."
             : null;
     }
 }

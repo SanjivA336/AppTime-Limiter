@@ -200,7 +200,7 @@ public sealed class UsageLedger
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
             // Today's usage is lost, which would reset the budget. Keep the bad file for inspection and say so.
-            LoadError = $"usage.json couldn't be read ({ex.Message}); today's usage started from zero.";
+            LoadError = $"usage.json couldn't be read ({ex.Message}), so today's usage restarted from zero.";
             try
             {
                 File.Copy(_path, Path.ChangeExtension(_path, $".corrupt-{DateTime.Now:yyyyMMdd-HHmmss}.json"), overwrite: true);

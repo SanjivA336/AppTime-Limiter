@@ -351,7 +351,7 @@ public sealed partial class GroupEditorViewModel : ObservableObject
         {
             Draft.IsPaused = false;
             Draft.PausedUntil = null;
-            Message = "That time has already passed, so the group isn't paused. Pick a later day or time.";
+            Message = "That time has already passed, so the group isn't paused: pick a later day or time.";
             return;
         }
 
@@ -442,7 +442,7 @@ public sealed partial class GroupEditorViewModel : ObservableObject
     }
 
     private const string DuplicateWarningMessage =
-        "Each warning needs a different number of minutes. Change the ones marked \"same as another\", then save.";
+        "Each warning needs a different number of minutes, so change the ones marked \"same as another\".";
 
     /// <summary>True while two warnings have the same number of minutes, which can't be saved.</summary>
     public bool HasDuplicateWarnings => Warnings.Any(w => w.IsDuplicate);
@@ -588,8 +588,7 @@ public sealed partial class GroupEditorViewModel : ObservableObject
         get
         {
             var resetTime = _main.Settings.ResetMinutes == 0 ? "midnight" : BudgetDay.Describe(_main.Settings.ResetMinutes);
-            return "These budgets belong to this group alone: time spent in other groups doesn't use them. " +
-                   $"Each day's budget starts fresh at {resetTime} (you can change this in Settings).";
+            return $"These budgets are this group's own and refill at {resetTime} (change that in Settings).";
         }
     }
 

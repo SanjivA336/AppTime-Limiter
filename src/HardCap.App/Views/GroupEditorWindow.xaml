@@ -28,7 +28,7 @@
                     Visibility="{Binding IsLocked, Converter={StaticResource BoolToVisibility}}">
             <controls:WaitCountdownView DataContext="{Binding Countdown}"
                                         Title="This group is locked"
-                                        Subtitle="You can see and change it when the timer reaches zero. The timer only runs while this window is in front." />
+                                        Subtitle="You can change it when the timer reaches zero, and it only runs while this window is in front." />
             <ui:Button Content="Cancel" HorizontalAlignment="Center" Margin="0,36,0,0" MinWidth="120" Click="CancelLock_Click" />
         </StackPanel>
 
@@ -68,7 +68,7 @@
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Apps" />
                                     <TextBlock Style="{StaticResource Hint}"
-                                               Text="Each app can be in only one group. Pick from apps that are running right now." />
+                                               Text="Each app can be in only one group." />
                                     <ItemsControl ItemsSource="{Binding Processes}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -131,7 +131,7 @@
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Grace period" />
                                     <TextBlock Style="{StaticResource Hint}"
-                                               Text="When the budget runs out, or a Blocked time begins, while an app is running, it gets this long before it is closed. An app opened during a block is closed right away. Up to 5 minutes." />
+                                               Text="How long a running app has before it closes when the budget runs out or a Blocked time begins, up to 5 minutes (apps opened during a block close right away)." />
                                     <!-- This card is only half as wide as the lock card, so the two boxes drop onto separate lines if they don't fit side by side. -->
                                     <WrapPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
@@ -159,7 +159,7 @@
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Pause" />
                                     <TextBlock Style="{StaticResource Hint}"
-                                               Text="Treat this group as Free for a while: nothing is limited or closed, and its time isn't charged to the budget. Pausing and resuming happen here, so they wait behind the lock like every other change." />
+                                               Text="Treat this group as Free for a while, so nothing is limited or closed and its time isn't charged to the budget." />
                                     <ComboBox ItemsSource="{Binding PauseOptions}" SelectedItem="{Binding SelectedPauseOption, Mode=TwoWay}"
                                               MinWidth="230" HorizontalAlignment="Left" />
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
@@ -180,7 +180,7 @@
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SectionTitle}" Text="Lock" />
                                 <TextBlock Style="{StaticResource Hint}"
-                                           Text="Make yourself wait before you can see or change this group. Opening it shows only a countdown, and everything about the group (including deleting it) stays out of reach until it ends. Up to 5 minutes; 0 means no lock. It starts the next time you open this group. If the settings also set a general wait, the longer of the two applies. The countdown only runs while the window is in front." />
+                                           Text="Make yourself wait before this group can be opened or changed, up to 5 minutes (0 means no lock); the longer of this and the general wait applies, and the countdown only runs while the window is in front." />
                                 <StackPanel Orientation="Horizontal">
                                     <!-- The ranges are wider than what is allowed on purpose: stepping past 59 or below 0
                                          has to reach the code, which carries it into the minutes and tidies the result. -->
@@ -211,7 +211,7 @@
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SectionTitle}" Text="Weekly schedule" />
                                 <TextBlock Style="{StaticResource Hint}"
-                                           Text="Pick a brush, then click and drag across the grid. Click a day's name to fill the whole day. Each cell is 30 minutes. Days with Limited time get their own daily budget, set above their column." />
+                                           Text="Pick a brush, then drag across the grid (click a day's name to fill it); each cell is 30 minutes, and days with Limited time get a daily budget above their column." />
 
                                 <!-- Left: which brush to paint with. Right: a readout of whatever cell the mouse is over. -->
                                 <Grid Margin="0,0,0,10">

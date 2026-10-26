@@ -183,7 +183,7 @@ public class GraceAndPauseTests
 
         Assert.Empty(lifted.Closes);
         Assert.Empty(blockedAgain.Closes);
-        Assert.Contains("closed in", Assert.Single(blockedAgain.Alerts).Message);
+        Assert.Contains("will close in", Assert.Single(blockedAgain.Alerts).Message);
     }
 
     // ---- Pause ----

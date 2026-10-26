@@ -21,7 +21,7 @@
             <StackPanel Visibility="{Binding IsWaiting, Converter={StaticResource BoolToVisibility}}">
                 <controls:WaitCountdownView DataContext="{Binding Countdown}"
                                             Title="Quitting is locked"
-                                            Subtitle="Quitting HardCap switches off every limit. You can quit when the timer reaches zero. The timer only runs while this window is in front." />
+                                            Subtitle="Quitting HardCap switches off every limit; you can quit when the timer reaches zero, and it only runs while this window is in front." />
                 <ui:Button Content="Keep HardCap running" HorizontalAlignment="Center" Margin="0,36,0,0" MinWidth="180"
                            Click="Keep_Click" />
             </StackPanel>

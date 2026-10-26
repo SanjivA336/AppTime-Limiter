@@ -59,8 +59,7 @@ public sealed class EnforcementRunner
                 {
                     _notifier.Notify(
                         "HardCap",
-                        $"Couldn't close {string.Join(", ", failed)}. It may be running as administrator; " +
-                        "try running HardCap as administrator.");
+                        $"Couldn't close {HardCap.Core.Processes.ProcessNames.Join(failed)}; if it's running as administrator, run HardCap as administrator too.");
                 }
             }
 

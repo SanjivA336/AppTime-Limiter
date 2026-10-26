@@ -238,7 +238,7 @@ public partial class GroupEditorWindow : FluentWindow
     {
         var answer = System.Windows.MessageBox.Show(
             this,
-            $"Delete the group \"{_card.Name}\"? Its apps will no longer be limited.",
+            $"Delete the group \"{_card.Name}\" and stop limiting its apps?",
             "Delete group",
             System.Windows.MessageBoxButton.YesNo,
             MessageBoxImage.Warning);

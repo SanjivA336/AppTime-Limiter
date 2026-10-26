@@ -99,7 +99,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public string ResetSummary => Settings.ResetMinutes == 0
         ? "Budgets refill at midnight."
-        : $"Budgets refill at {BudgetDay.Describe(Settings.ResetMinutes)}. Until then, play after midnight still counts toward the day before.";
+        : $"Budgets refill at {BudgetDay.Describe(Settings.ResetMinutes)}, so play after midnight until then counts toward the day before.";
 
     // ---- Waiting ----
 
@@ -167,7 +167,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             if (Settings.WaitSeconds == 0)
             {
-                return "There is no general wait yet, so groups and the settings open straight away. Groups with their own lock still make you wait.";
+                return "No general wait is set, so only groups with their own lock make you wait.";
             }
 
             var wait = LockTime.Describe(Settings.WaitSeconds);
@@ -179,9 +179,8 @@ public sealed partial class SettingsViewModel : ObservableObject
             var from = BudgetDay.Describe(Settings.OpenHoursStartMinutes);
             var to = BudgetDay.Describe(Settings.OpenHoursEndMinutes);
             return Settings.OpenHoursStartMinutes == Settings.OpenHoursEndMinutes
-                ? "The open hours start and end at the same time, so they are empty."
-                : $"Between {from} and {to} there is no wait. At any other time, opening a group, the settings, or quitting waits {wait}. " +
-                  "A group's own lock always applies, and the longer wait wins.";
+                ? "Open hours start and end at the same time, so they are empty."
+                : $"No wait between {from} and {to}; at other times, opening a group, the settings or quitting waits {wait} (a group's own lock still applies, and the longer wait wins).";
         }
     }
 
@@ -230,8 +229,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         Wait.Refresh();
         OnPropertyChanged(string.Empty); // every setting on the page may have changed
 
-        var fixedNote = loaded.Repairs.Count > 0 ? $" {loaded.Repairs.Count} value(s) in it were out of range and were corrected." : string.Empty;
-        Message = $"Imported {loaded.Settings.Groups.Count} group(s) from {System.IO.Path.GetFileName(path)}.{fixedNote}";
+        var groupCount = loaded.Settings.Groups.Count;
+        var repairCount = loaded.Repairs.Count;
+        var fixedNote = repairCount > 0 ? $", correcting {repairCount} out-of-range {(repairCount == 1 ? "value" : "values")}" : string.Empty;
+        Message = $"Imported {groupCount} {(groupCount == 1 ? "group" : "groups")} from {System.IO.Path.GetFileName(path)}{fixedNote}.";
         return true;
     }
 

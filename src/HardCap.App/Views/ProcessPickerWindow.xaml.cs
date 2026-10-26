@@ -181,7 +181,7 @@ public partial class ProcessPickerWindow : FluentWindow
         List.ItemsSource = shown;
         Status.Text = _isLookingForInstalledApps
             ? "Looking for installed apps…"
-            : $"{shown.Count} app(s). Games from Steam, Epic and similar often aren't listed here: use Browse to pick their program file.";
+            : $"{shown.Count} {(shown.Count == 1 ? "app" : "apps")}; Steam and Epic games often aren't listed, so use Browse to pick the game's .exe file.";
     }
 
     // ---- Events ----

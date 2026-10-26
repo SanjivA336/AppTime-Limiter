@@ -87,7 +87,7 @@
             <StackPanel>
                 <TextBlock Text="Analytics" FontSize="28" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                <TextBlock Text="Where your time went. Usage is kept for 3 months." Margin="0,2,0,0"
+                <TextBlock Text="Where your time went; usage is kept for 3 months." Margin="0,2,0,0"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             </StackPanel>
 
@@ -117,7 +117,7 @@
                     <StackPanel>
                         <TextBlock Style="{StaticResource SectionTitle}" Text="No groups yet" />
                         <TextBlock Style="{StaticResource Hint}" Margin="0"
-                                   Text="Add a group on the Limits page. Its time shows up here once its apps have been running." />
+                                   Text="Add a group on the Limits page, and its time shows up here once its apps have been running." />
                     </StackPanel>
                 </Border>
 
@@ -229,7 +229,7 @@
                                 <!-- Month -->
                                 <StackPanel Visibility="{Binding IsMonthView, Converter={StaticResource BoolToVisibility}}">
                                     <TextBlock Style="{StaticResource Hint}"
-                                               Text="Each day's time, split by group. Point at a day for the percentages, click a day to open it, or click a week number to open that week." />
+                                               Text="Each day's time, split by group; point at a day for the percentages, or click a day or week number to open it." />
                                     <controls:MonthCalendarChart x:Name="MonthChart"
                                                                  Days="{Binding Days}" Today="{Binding Today}"
                                                                  TextBrush="{DynamicResource TextFillColorPrimaryBrush}"

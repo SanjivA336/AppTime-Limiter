@@ -43,7 +43,7 @@
             <StackPanel>
                 <TextBlock Style="{StaticResource SectionTitle}" Text="No groups yet" />
                 <TextBlock Style="{StaticResource Hint}" Margin="0"
-                           Text="A group is a set of apps that share one schedule, such as “Games”. Add a group, put the apps in it, then paint when they're free, limited, or blocked. Until you add one, nothing is limited." />
+                           Text="A group is a set of apps that share one schedule, such as “Games”. Nothing is limited until you add one and paint when its apps are free, limited or blocked." />
             </StackPanel>
         </Border>
 

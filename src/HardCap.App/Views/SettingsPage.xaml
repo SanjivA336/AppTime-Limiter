@@ -11,7 +11,7 @@
                     Visibility="{Binding IsLocked, Converter={StaticResource BoolToVisibility}}">
             <controls:WaitCountdownView DataContext="{Binding Countdown}"
                                         Title="Settings are locked"
-                                        Subtitle="You can see and change them when the timer reaches zero. The timer only runs while this window is in front." />
+                                        Subtitle="You can change them when the timer reaches zero, and it only runs while this window is in front." />
             <ui:Button Content="Back to Limits" HorizontalAlignment="Center" Margin="0,36,0,0" MinWidth="140"
                        Click="Cancel_Click" />
         </StackPanel>
@@ -49,7 +49,7 @@
                         <StackPanel>
                             <TextBlock Style="{StaticResource SectionTitle}" Text="When a new day starts" />
                             <TextBlock Style="{StaticResource Hint}"
-                                       Text="Every group's daily budget refills at this time. If you usually stay up past midnight, pick when you normally go to sleep, such as 4:00 AM, and late-night play counts toward the day before." />
+                                       Text="Daily budgets refill at this time, so if you stay up past midnight, pick when you usually go to sleep (such as 4:00 AM) and late-night play counts toward the day before." />
                             <ComboBox ItemsSource="{Binding TimeChoices}" SelectedItem="{Binding SelectedReset, Mode=TwoWay}"
                                       Width="150" HorizontalAlignment="Left" />
                             <TextBlock Text="{Binding ResetSummary}" Margin="0,8,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
@@ -61,7 +61,7 @@
                         <StackPanel>
                             <TextBlock Style="{StaticResource SectionTitle}" Text="Waiting" />
                             <TextBlock Style="{StaticResource Hint}"
-                                       Text="Make yourself wait before you can open a group, these settings, or quit HardCap. Changing the rules in a weak moment gets harder. The countdown only runs while the window is in front. Quitting also waits as long as your longest group lock." />
+                                       Text="Make yourself wait before opening a group, these settings or quitting HardCap, so the rules are harder to change in a weak moment (quitting also waits as long as your longest group lock, and the countdown only runs while the window is in front)." />
                             <StackPanel Orientation="Horizontal">
                                 <ui:NumberBox Value="{Binding Wait.Minutes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                               Minimum="-1" Maximum="9" SmallChange="1" LargeChange="1"
@@ -97,7 +97,7 @@
                         <StackPanel>
                             <TextBlock Style="{StaticResource SectionTitle}" Text="Back up your settings" />
                             <TextBlock Style="{StaticResource Hint}"
-                                       Text="Export your groups and these settings to a file, or load them back. Importing replaces every group and the settings above, which is why it sits behind the wait like everything else here. Your usage history isn't included." />
+                                       Text="Export your groups and settings to a file or load them back; importing replaces everything above, and your usage history isn't included." />
                             <StackPanel Orientation="Horizontal">
                                 <ui:Button Content="Export…" Icon="{ui:SymbolIcon ArrowUpload24}" Click="Export_Click" Margin="0,0,10,0" />
                                 <ui:Button Content="Import…" Icon="{ui:SymbolIcon ArrowDownload24}" Click="Import_Click" />

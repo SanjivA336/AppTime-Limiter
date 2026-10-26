@@ -275,7 +275,8 @@ public class EnforcementEngineTests
 
         Assert.Empty(early.Alerts);
         var message = Assert.Single(warning.Alerts).Message;
-        Assert.Contains("Games access ends in 5 minutes", message);
+        Assert.Contains("game will close in 5 minutes", message);
+        Assert.Contains("apps in Games are about to be blocked", message);
     }
 
     [Fact]
@@ -289,7 +290,7 @@ public class EnforcementEngineTests
         var second = _engine.Tick(settings, T.At(12, 0, 10), Running); // 4:55 left
 
         Assert.Empty(first.Alerts);
-        Assert.Equal("You have 5 minutes left of Games.", Assert.Single(second.Alerts).Message);
+        Assert.Equal("game will close in 5 minutes: apps in Games are almost out of budget.", Assert.Single(second.Alerts).Message);
     }
 
     [Fact]
@@ -367,7 +368,7 @@ public class EnforcementEngineTests
 
         var result = _engine.Tick(T.Settings(600, group), T.At(21, 59), Running);
 
-        Assert.Contains("ends in 1 minute.", Assert.Single(result.Alerts).Message);
+        Assert.Contains("will close in 1 minute:", Assert.Single(result.Alerts).Message);
     }
 
     // ---- Notification noise and status ----

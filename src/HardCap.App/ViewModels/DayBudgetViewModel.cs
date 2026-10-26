@@ -34,7 +34,7 @@ public sealed class DayBudgetViewModel : ObservableObject
 
     public string ToolTipText => IsEnabled
         ? $"Minutes of Limited time this group may use on {Day}."
-        : $"{Day} has no Limited time in this group. Paint some Limited cells to set a budget.";
+        : $"{Day} has no Limited time; paint some Limited cells to set a budget.";
 
     /// <summary>Re-reads everything. Called after the schedule changes, a budget is copied, or the draft is reverted.</summary>
     public void Refresh()

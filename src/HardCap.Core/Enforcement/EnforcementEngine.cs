@@ -101,10 +101,10 @@ public sealed class EnforcementEngine
             var closeReason = RecordUsageAndCheckLimits(group, cellState, secondsToCredit, today, dailyBudgetSeconds, runningFromThisGroup, now);
             if (closeReason is CloseReason reason)
             {
-                if (ShouldCloseNow(group, reason, now, alerts))
+                if (ShouldCloseNow(group, reason, runningFromThisGroup, now, alerts))
                 {
                     closes.Add(new CloseRequest(group.Id, group.Name, runningFromThisGroup, reason));
-                    AddCloseNotice(alerts, group, reason, now);
+                    AddCloseNotice(alerts, group, reason, runningFromThisGroup, now);
                 }
             }
             else
@@ -113,7 +113,7 @@ public sealed class EnforcementEngine
                 _wasRunningAndAllowed.Add(group.Id);
                 if (!isPaused)
                 {
-                    AddWarningIfDue(alerts, group, now, today, settings.ResetMinutes);
+                    AddWarningIfDue(alerts, group, runningFromThisGroup, now, today, settings.ResetMinutes);
                 }
             }
         }
@@ -130,7 +130,7 @@ public sealed class EnforcementEngine
     ///   and say so.
     ///   Otherwise (the apps were opened during the block): close now.
     /// </summary>
-    private bool ShouldCloseNow(AppGroup group, CloseReason reason, DateTime now, List<Alert> alerts)
+    private bool ShouldCloseNow(AppGroup group, CloseReason reason, IReadOnlyList<string> runningApps, DateTime now, List<Alert> alerts)
     {
         var graceSeconds = Math.Clamp(group.GraceSeconds, 0, AppGroup.MaxGraceSeconds);
         if (graceSeconds == 0)
@@ -146,8 +146,8 @@ public sealed class EnforcementEngine
         if (_wasRunningAndAllowed.Remove(group.Id))
         {
             _graceEndsAt[group.Id] = now.AddSeconds(graceSeconds);
-            var why = reason == CloseReason.Blocked ? "is blocked now" : "has used up its daily budget";
-            alerts.Add(new Alert("HardCap", $"{group.Name} {why}. It will be closed in {LockTime.Describe(graceSeconds)}, so save your work."));
+            var why = reason == CloseReason.Blocked ? "are blocked" : "have used up their daily budget";
+            alerts.Add(new Alert("HardCap", $"Apps in {group.Name} {why}, so {ProcessNames.Join(runningApps)} will close in {LockTime.Describe(graceSeconds)}; save your work."));
             return false;
         }
 
@@ -204,7 +204,7 @@ public sealed class EnforcementEngine
         }
     }
 
-    private void AddCloseNotice(List<Alert> alerts, AppGroup group, CloseReason reason, DateTime now)
+    private void AddCloseNotice(List<Alert> alerts, AppGroup group, CloseReason reason, IReadOnlyList<string> runningApps, DateTime now)
     {
         var toldRecently = _lastCloseNoticeAt.TryGetValue(group.Id, out var lastNotice)
             && now - lastNotice < CloseNoticeCooldown;
@@ -214,9 +214,10 @@ public sealed class EnforcementEngine
         }
 
         _lastCloseNoticeAt[group.Id] = now;
+        var apps = ProcessNames.Join(runningApps);
         var message = reason == CloseReason.Blocked
-            ? $"{group.Name} is blocked right now, so it's being closed."
-            : $"Your daily budget is used up, so {group.Name} is being closed.";
+            ? $"Closing {apps}: apps in {group.Name} are blocked right now."
+            : $"Closing {apps}: apps in {group.Name} have used up their daily budget.";
         alerts.Add(new Alert("HardCap", message));
     }
 
@@ -226,7 +227,7 @@ public sealed class EnforcementEngine
     /// If several warning times are passed at once (the app was started with 2 minutes left and warnings are
     /// set for 5 and 2), the user gets one message, not two.
     /// </summary>
-    private void AddWarningIfDue(List<Alert> alerts, AppGroup group, DateTime now, DateOnly today, int resetMinutes)
+    private void AddWarningIfDue(List<Alert> alerts, AppGroup group, IReadOnlyList<string> runningApps, DateTime now, DateOnly today, int resetMinutes)
     {
         if (group.WarningMinutes.Count == 0)
         {
@@ -262,16 +263,17 @@ public sealed class EnforcementEngine
             return;
         }
 
-        alerts.Add(new Alert("HardCap", WarningText(group, cutoff, now)));
+        alerts.Add(new Alert("HardCap", WarningText(group, runningApps, cutoff)));
     }
 
-    private static string WarningText(AppGroup group, LimitEnd cutoff, DateTime now)
+    private static string WarningText(AppGroup group, IReadOnlyList<string> runningApps, LimitEnd cutoff)
     {
         var minutesLeft = Math.Max(1, (int)Math.Ceiling(cutoff.In.TotalMinutes));
         var minutesWord = minutesLeft == 1 ? "minute" : "minutes";
+        var apps = ProcessNames.Join(runningApps);
 
         return cutoff.Reason == LimitReason.Budget
-            ? $"You have {minutesLeft} {minutesWord} left of {group.Name}."
-            : $"It's {now:h:mm tt}. {group.Name} access ends in {minutesLeft} {minutesWord}.";
+            ? $"{apps} will close in {minutesLeft} {minutesWord}: apps in {group.Name} are almost out of budget."
+            : $"{apps} will close in {minutesLeft} {minutesWord}: apps in {group.Name} are about to be blocked.";
     }
 }

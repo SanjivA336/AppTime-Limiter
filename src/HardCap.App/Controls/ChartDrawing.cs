@@ -176,7 +176,7 @@ internal static class ChartDrawing
 
         if (apps.Count == 0)
         {
-            rows.Add(("No time recorded for each app", string.Empty));
+            rows.Add(("No app detail recorded", string.Empty));
         }
 
         return rows;

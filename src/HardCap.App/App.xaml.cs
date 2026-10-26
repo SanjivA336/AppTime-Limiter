@@ -117,8 +117,7 @@ public partial class App : Application
         }
 
         var migrationNotice = paths.Migration.Outcome == MigrationOutcome.Failed
-            ? $"HardCap couldn't move your settings to its new folder yet ({paths.Migration.Error}). It is using the old folder " +
-              "for now and will try again next time it starts. If an older copy of the app is still running, close it."
+            ? $"HardCap couldn't move your settings to its new folder ({paths.Migration.Error}), so it will keep using the old one and try again next time; close any older copy that is still running."
             : null;
 
         // Things the user should hear about: settings we had to repair, or files we couldn't read.
@@ -343,7 +342,7 @@ public partial class App : Application
         if (!_hasToldUserAboutTray)
         {
             _hasToldUserAboutTray = true;
-            _tray?.Notify("HardCap is still running", "It keeps enforcing your limits from the notification area. Right-click the icon to exit.");
+            _tray?.Notify("HardCap is still running", "Your limits are still on; right-click the tray icon to quit.");
         }
     }
 

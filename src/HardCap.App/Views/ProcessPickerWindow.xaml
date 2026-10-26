@@ -26,7 +26,7 @@
 
             <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Text="Pick a running app (shown first), search your installed apps, or browse for the program file. Hold Ctrl to pick several." />
+                       Text="Pick a running app (shown first), search your installed apps or browse for the program file; hold Ctrl to pick several." />
 
             <Grid Grid.Row="1" Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
@@ -51,7 +51,7 @@
                     <CheckBox x:Name="ShowNotRunning" Content="Include installed apps that aren't running" IsChecked="True"
                               Checked="Filter_Changed" Unchecked="Filter_Changed" Margin="0,0,18,4" />
                     <CheckBox x:Name="ShowBackground" Content="Include background programs"
-                              ToolTip="Programs with no window, such as helpers, services and anti-cheat. They often run all day."
+                              ToolTip="Programs with no window, such as helpers, services and anti-cheat, which often run all day."
                               Checked="Filter_Changed" Unchecked="Filter_Changed" Margin="0,0,0,4" />
                 </WrapPanel>
                 <TextBlock x:Name="Status" Grid.Row="1" Margin="0,0,0,6" FontSize="12" TextWrapping="Wrap"

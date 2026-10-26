@@ -163,7 +163,7 @@ public static class SettingsRules
         var name = ProcessNames.Normalize(rawName);
         if (name.Length == 0)
         {
-            return "Process name is empty.";
+            return "App name is empty.";
         }
 
         if (ProcessNames.IsProtected(name))

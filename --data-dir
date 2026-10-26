@@ -1,0 +1,138 @@
+PASS  editing marks the editor as having changes
+PASS  editing does not rename the real group
+PASS  editing does not recolor the real group
+PASS  editing does not change the real schedule
+PASS  editing does not change the real budget
+PASS  editing does not change the card
+PASS  editing writes nothing to disk
+PASS  revert clears the changes flag
+PASS  revert restores the name
+PASS  revert restores the color
+PASS  revert restores the schedule
+PASS  revert restores the budget
+PASS  save reports that it saved
+PASS  save renames the real group
+PASS  save recolors the real group
+PASS  save changes the real schedule
+PASS  save changes this group's budget
+PASS  save leaves every other group's budget alone
+PASS  a saved budget is written to disk inside the group
+PASS  save updates the card
+PASS  save writes the new name to disk
+PASS  save writes the new budget to disk
+PASS  an abandoned edit leaves the real name alone
+PASS  an abandoned edit leaves the real apps alone
+PASS  an abandoned edit writes nothing
+PASS  save with no changes reports that nothing was saved
+PASS  two warnings can be added
+PASS  a repeated warning is NOT removed while editing
+PASS  both repeated rows are marked
+PASS  saving is refused while there is a repeat
+PASS  the user is told why
+PASS  the real group is untouched by the refused save
+PASS  moving past the other number clears the marks
+PASS  and the reminder goes away
+PASS  saving is allowed once they differ
+PASS  the draft keeps both distinct warnings
+PASS  a name used by another group is refused
+PASS  the user is told the name is taken
+PASS  a new group's editor has nothing to delete
+PASS  an unsaved new group is not in the settings
+PASS  an unsaved new group has no card
+PASS  a saved new group joins the settings
+PASS  a saved new group gets a card
+PASS  a saved new group is written to disk
+PASS  an abandoned new group is not on disk
+PASS  a group without a lock opens straight into the editor
+PASS  60 seconds becomes 1 minute 0 seconds
+PASS  stepping the seconds below 0 borrows a minute (0:55)
+PASS  stepping 0:55 up past 59 carries to 1:00
+PASS  the lock can't go past 5:00
+PASS  the lock can't go below 0:00
+PASS  0:00 reads as no lock
+PASS  a typed 7 seconds is tidied to 5
+PASS  revert also undoes the lock
+PASS  setting a lock does not lock the window you are in
+PASS  the lock is saved to the group
+PASS  the lock is written to disk
+PASS  opening a locked group shows the lock screen
+PASS  the lock screen hides the editor
+PASS  the countdown starts at the full length
+PASS  a short lock starts locked
+PASS  it is still locked partway through
+PASS  the bar has gone down by then
+PASS  the editor appears when the countdown ends
+PASS  opening it again starts the whole wait over
+PASS  a group whose lock was removed opens straight into the editor
+PASS  a new group is never locked
+PASS  typing in a warning box has not saved it yet (it saves on leaving the box)
+PASS  moving focus to Save commits the typed warning
+PASS  moving focus to Save commits the typed lock seconds (0:45)
+PASS  a two-digit number fits in the box (text area is 52 px wide, needs 40)
+PASS  changing a box's value in code (like its arrows do) reaches the editor (box 2, text '2', editor 2:45, draft 165s)
+PASS  moving focus to Save commits a typed daily budget
+PASS  a typed grace period reaches the draft
+PASS  typing a grace period does not change the lock
+PASS  a group that isn't paused opens as "Not paused"
+PASS  pausing until resumed marks the draft paused with no end
+PASS  pausing is not real until it is saved
+PASS  "for 1 hour" sets an end about an hour away
+PASS  saving a pause makes it real
+PASS  the card says it is paused
+PASS  a group paused until a time offers to keep that pause
+PASS  choosing "not paused" and saving resumes the group
+PASS  a countdown standing in the background does not move
+PASS  it carries on when its window is active again
+PASS  the general wait makes a group without a lock wait
+PASS  during open hours the general wait does not apply
+PASS  a group's own lock still applies during open hours
+PASS  with no wait the settings open straight away
+PASS  a general wait puts the settings behind a countdown
+PASS  the settings open when the countdown ends
+PASS  opening the settings again starts the wait over
+PASS  choosing a reset time changes the setting
+PASS  the reset time is explained
+PASS  the group editor's note shows the reset time
+PASS  exporting writes a file
+PASS  a group was removed after the export
+PASS  importing the file works
+PASS  importing brings the groups back
+PASS  importing brings the reset time back
+PASS  a broken file is refused
+PASS  the selector lists every group
+PASS  every group is picked to begin with
+PASS  the button then offers to deselect all
+PASS  it opens on this week
+PASS  this week shows its dates
+PASS  the week chart has seven columns, with today the only highlighted one
+PASS  only days that have happened can be opened
+PASS  deselecting all leaves nothing picked
+PASS  the button then offers to select all
+PASS  nothing picked says so
+PASS  nothing picked charts nothing
+PASS  selecting all picks every group again
+PASS  a group can be unpicked on its own
+PASS  with some picked, the button picks the rest
+PASS  from nothing, one group can be picked
+PASS  and another added
+PASS  the horizontal chart has a bar for each group
+PASS  switching to apps shows a bar for each app
+PASS  the day view is named for today
+PASS  the day view has a column for each hour of the day
+PASS  the day view highlights the current hour only
+PASS  hours are not clickable
+PASS  hours have readable names
+PASS  the month view is named for this month
+PASS  the month shows its name and every day
+PASS  you can't go forward from the current week
+PASS  going back shows last week
+PASS  going forward and the jump button are then possible
+PASS  going forward again lands on this week
+PASS  going back has no limit, and an empty week says so
+PASS  the jump button goes straight back to this week
+PASS  clicking a day opens the day view for it
+PASS  clicking another day while on the day view moves to it
+PASS  clicking a week number opens that week
+PASS  the quit window has not quit by itself
+
+ALL CHECKS PASSED

@@ -212,8 +212,8 @@ public sealed partial class AnalyticsViewModel : ObservableObject
 
     /// <summary>The line above the chart, saying what its columns are.</summary>
     public string ChartHint => IsDayView
-        ? "Time in each hour of the day, split by group. Point at a colour to see the apps in it."
-        : "Hours each day, split by group. Point at a colour to see the apps in it, or click a day to open it.";
+        ? "Time in each hour, split by group; point at a colour to see its apps."
+        : "Hours each day, split by group; point at a colour to see its apps, or click a day to open it.";
 
     // ---- Selection ----
 
@@ -486,7 +486,7 @@ public sealed partial class AnalyticsViewModel : ObservableObject
             ChangeBrush = rounded > 0 ? UpBrush : DownBrush;
         }
 
-        ChangeCaption = $"compared with your average of {Duration(before)} a day over the previous weeks";
+        ChangeCaption = $"vs. your {Duration(before)} a day average over earlier weeks";
     }
 
     /// <summary>The message shown instead of the charts when there is nothing to chart.</summary>
@@ -505,8 +505,8 @@ public sealed partial class AnalyticsViewModel : ObservableObject
             var what = report.IsCurrent ? noun : PeriodRange;
             EmptyTitle = $"No data for {what}";
             EmptyMessage = report.IsCurrent
-                ? "Nothing has been recorded here yet. Time shows up once an app in the selected groups has been running."
-                : "Nothing was recorded for the selected groups then. Use the arrows to look at another period.";
+                ? "Nothing has been recorded yet; time appears once an app in the selected groups has been running."
+                : "Nothing was recorded for the selected groups then; use the arrows to look at another period.";
             return;
         }
 
@@ -531,7 +531,7 @@ public sealed partial class AnalyticsViewModel : ObservableObject
 
                 if (report.TotalSeconds > 0 && report.Hours.All(h => h.TotalSeconds == 0))
                 {
-                    ChartNote = "Hour-by-hour detail is recorded from now on. Earlier days only have a total for each group.";
+                    ChartNote = "Hour-by-hour detail is only recorded from now on; earlier days just have totals.";
                 }
 
                 break;
@@ -584,7 +584,7 @@ public sealed partial class AnalyticsViewModel : ObservableObject
         var appTime = groups.Sum(g => g.Apps.Sum(a => a.Seconds));
         if (groupTime > 0 && appTime == 0)
         {
-            RowsNote = "Time for each app is recorded from now on. Earlier days only have a total for each group.";
+            RowsNote = "App detail is only recorded from now on; earlier days just have totals.";
         }
     }
 
@@ -620,7 +620,7 @@ public sealed partial class AnalyticsViewModel : ObservableObject
         var used = group.Apps.Where(a => a.Seconds > 0).ToList();
         if (used.Count == 0)
         {
-            var note = group.Seconds > 0 ? "No time recorded for each app on these days" : "Nothing recorded";
+            var note = group.Seconds > 0 ? "No app detail recorded for these days" : "Nothing recorded";
             return new List<UsageRow> { new() { Name = note, ColorBrush = brush, TimeText = string.Empty } };
         }
 
