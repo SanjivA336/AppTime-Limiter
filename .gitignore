@@ -62,3 +62,6 @@ Desktop.ini
 *.log
 *.tmp
 *.bak
+
+# Self-test report written to the working directory when a flag value is misread
+/--data-dir
