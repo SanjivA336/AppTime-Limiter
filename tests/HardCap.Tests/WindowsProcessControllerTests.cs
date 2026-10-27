@@ -15,6 +15,7 @@ public sealed class WindowsProcessControllerTests : IDisposable
 
     public void Dispose()
     {
+        _controller.ResumeAll(); // never leave a test process frozen
         foreach (var process in _started)
         {
             try
@@ -55,6 +56,86 @@ public sealed class WindowsProcessControllerTests : IDisposable
         })!;
         _started.Add(process);
         return name;
+    }
+
+    // ---- Freezing (launch friction) ----
+
+    private static bool IsFrozen(string name)
+    {
+        var processes = Process.GetProcessesByName(name);
+        try
+        {
+            return processes.Length > 0 && processes.All(p =>
+                p.Threads.Cast<ProcessThread>().All(t => t.ThreadState == System.Diagnostics.ThreadState.Wait && t.WaitReason == ThreadWaitReason.Suspended));
+        }
+        finally
+        {
+            foreach (var process in processes)
+            {
+                process.Dispose();
+            }
+        }
+    }
+
+    private static bool WaitUntil(Func<bool> condition)
+    {
+        for (var i = 0; i < 40; i++)
+        {
+            if (condition())
+            {
+                return true;
+            }
+
+            Thread.Sleep(50);
+        }
+
+        return condition();
+    }
+
+    [Fact]
+    public void A_running_process_can_be_frozen_and_then_unfrozen()
+    {
+        var name = StartLongRunningProcess();
+        Assert.True(WaitUntil(() => _controller.GetRunningProcessNames().Contains(name)));
+
+        var couldNot = _controller.Suspend(new[] { name });
+
+        Assert.Empty(couldNot);
+        Assert.True(WaitUntil(() => IsFrozen(name)), "the process should be frozen");
+
+        _controller.Resume(new[] { name });
+
+        Assert.True(WaitUntil(() => !IsFrozen(name)), "the process should be running again");
+    }
+
+    [Fact]
+    public void Resuming_everything_unfreezes_what_was_frozen()
+    {
+        var name = StartLongRunningProcess();
+        Assert.True(WaitUntil(() => _controller.GetRunningProcessNames().Contains(name)));
+        _controller.Suspend(new[] { name });
+        Assert.True(WaitUntil(() => IsFrozen(name)));
+
+        _controller.ResumeAll();
+
+        Assert.True(WaitUntil(() => !IsFrozen(name)));
+    }
+
+    [Fact]
+    public void Core_windows_processes_are_never_frozen()
+    {
+        var couldNot = _controller.Suspend(new[] { "explorer" });
+
+        Assert.Equal(new[] { "explorer" }, couldNot);
+        Assert.False(IsFrozen("explorer"));
+    }
+
+    [Fact]
+    public void A_name_that_is_not_running_cannot_be_frozen()
+    {
+        var couldNot = _controller.Suspend(new[] { "atl-test-nothing-runs-with-this-name" });
+
+        Assert.Equal(new[] { "atl-test-nothing-runs-with-this-name" }, couldNot);
     }
 
     [Fact]

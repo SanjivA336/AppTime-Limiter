@@ -12,6 +12,9 @@ public sealed class AppGroup
     /// <summary>The longest grace period that can be set: five minutes.</summary>
     public const int MaxGraceSeconds = 300;
 
+    /// <summary>The longest launch friction that can be set: one minute. A longer freeze is more likely to make online games time out.</summary>
+    public const int MaxLaunchFrictionSeconds = 60;
+
     public const int DefaultDailyBudgetMinutes = 120;
     public const int MaxDailyBudgetMinutes = 24 * 60;
 
@@ -37,6 +40,12 @@ public sealed class AppGroup
     public int LockSeconds { get; set; }
 
     /// <summary>
+    /// The lock that applies at <paramref name="now"/>: the stored <see cref="LockSeconds"/>, or 0 while the group is paused. The stored
+    /// number is never changed; a paused group simply ignores it, and it comes back by itself when the pause ends.
+    /// </summary>
+    public int LockSecondsAt(DateTime now) => IsPausedAt(now) ? 0 : Math.Clamp(LockSeconds, 0, MaxLockSeconds);
+
+    /// <summary>
     /// How long, in seconds, an app may keep running after a limit starts while it is already open (the budget runs out,
     /// or a Blocked time begins), so there is time to save. 0 means close right away. The longest is <see cref="MaxGraceSeconds"/>.
     /// An app opened during a block never gets a grace period.
@@ -60,6 +69,12 @@ public sealed class AppGroup
     /// amounts are always recorded; this only picks which one the budget reads. Closing an app never depends on it.
     /// </summary>
     public CountMode CountMode { get; set; } = CountMode.WhileRunning;
+
+    /// <summary>
+    /// Launch friction: how long, in seconds, one of this group's apps is frozen behind a countdown when it starts (even with budget
+    /// left). 0 means off, which is the default. The longest is <see cref="MaxLaunchFrictionSeconds"/>. A paused group skips it.
+    /// </summary>
+    public int LaunchFrictionSeconds { get; set; }
 
     /// <summary>
     /// How many minutes of Limited time this group allows on each day, indexed by <see cref="DayOfWeek"/> (0 = Sunday).
@@ -102,6 +117,7 @@ public sealed class AppGroup
         IsPaused = IsPaused,
         PausedUntil = PausedUntil,
         CountMode = CountMode,
+        LaunchFrictionSeconds = LaunchFrictionSeconds,
         BudgetMinutesByDay = (int[])(BudgetMinutesByDay ?? NewBudgets(DefaultDailyBudgetMinutes)).Clone(),
     };
 
@@ -118,6 +134,7 @@ public sealed class AppGroup
         IsPaused = other.IsPaused;
         PausedUntil = other.PausedUntil;
         CountMode = other.CountMode;
+        LaunchFrictionSeconds = other.LaunchFrictionSeconds;
         BudgetMinutesByDay = (int[])(other.BudgetMinutesByDay ?? NewBudgets(DefaultDailyBudgetMinutes)).Clone();
     }
 
@@ -131,6 +148,7 @@ public sealed class AppGroup
         && IsPaused == other.IsPaused
         && PausedUntil == other.PausedUntil
         && CountMode == other.CountMode
+        && LaunchFrictionSeconds == other.LaunchFrictionSeconds
         && Processes.SequenceEqual(other.Processes)
         && WarningMinutes.SequenceEqual(other.WarningMinutes)
         && BudgetMinutesByDay.SequenceEqual(other.BudgetMinutesByDay)

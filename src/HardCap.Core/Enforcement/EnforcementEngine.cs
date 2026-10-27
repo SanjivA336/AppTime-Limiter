@@ -20,10 +20,19 @@ public sealed record Alert(string Title, string Message);
 /// <param name="IsBudgetDraining">True when this tick actually charged time to the group's budget (a Limited cell, not paused, not used up, and the apps counted under the group's count mode).</param>
 public sealed record GroupStatus(Guid GroupId, bool IsRunning, CellState State, bool IsBudgetDraining = false);
 
+/// <summary>An order to freeze some newly started apps of one group behind a countdown (launch friction).</summary>
+/// <param name="Processes">The apps that just started. If more start while the group is already held, they come in another request.</param>
+/// <param name="Seconds">How long the countdown lasts.</param>
+public sealed record HoldRequest(Guid GroupId, string GroupName, IReadOnlyList<string> Processes, int Seconds);
+
+/// <param name="NewHolds">Apps to freeze now. Empty (or null) when nothing just started.</param>
+/// <param name="EndedHolds">Groups whose hold has to end now, because it no longer applies (a pause began, the apps closed, ...).</param>
 public sealed record TickResult(
     IReadOnlyList<CloseRequest> Closes,
     IReadOnlyList<Alert> Alerts,
-    IReadOnlyList<GroupStatus> Statuses);
+    IReadOnlyList<GroupStatus> Statuses,
+    IReadOnlyList<HoldRequest>? NewHolds = null,
+    IReadOnlyList<Guid>? EndedHolds = null);
 
 /// <summary>
 /// The part that makes the calls. A few seconds apart, the app hands it the current time and the list of
@@ -60,12 +69,26 @@ public sealed class EnforcementEngine
     // opened while a block is already on is closed straight away, or "grace" would be a free few minutes on every launch.
     private readonly HashSet<Guid> _wasRunningAndAllowed = new();
 
+    // Launch friction. Groups whose newly started apps are frozen behind a countdown right now: nothing in them is counted, closed
+    // or warned about until the hold ends.
+    private readonly HashSet<Guid> _holds = new();
+
+    // For each group, which of its apps were running on the last check, to tell which ones just started.
+    private readonly Dictionary<Guid, HashSet<string>> _knownApps = new();
+
     private DateTime? _lastTickAt;
+    private bool _hasTicked;
 
     public EnforcementEngine(UsageLedger ledger)
     {
         _ledger = ledger;
     }
+
+    /// <summary>
+    /// Says a group's hold is over (its countdown ended, or it was cancelled), so it is counted and enforced again. The apps that
+    /// were frozen are not held a second time: they were already running on the check that started the hold.
+    /// </summary>
+    public void ReleaseHold(Guid groupId) => _holds.Remove(groupId);
 
     public TickResult Tick(
         AppSettings settings, DateTime now, IReadOnlyCollection<string> runningProcessNames, string? foregroundProcessName = null,
@@ -84,6 +107,8 @@ public sealed class EnforcementEngine
         var closes = new List<CloseRequest>();
         var alerts = new List<Alert>();
         var statuses = new List<GroupStatus>();
+        var newHolds = new List<HoldRequest>();
+        var endedHolds = new List<Guid>();
 
         foreach (var group in settings.Groups)
         {
@@ -93,6 +118,38 @@ public sealed class EnforcementEngine
             var runningFromThisGroup = group.Processes.Where(runningNames.Contains).ToList();
             var statusIndex = statuses.Count;
             statuses.Add(new GroupStatus(group.Id, runningFromThisGroup.Count > 0, cellState));
+
+            // Which of the group's apps just started? Not on the very first check: apps already open when HardCap starts aren't held.
+            _knownApps.TryGetValue(group.Id, out var appsBefore);
+            var newApps = _hasTicked
+                ? runningFromThisGroup.Where(app => appsBefore is null || !appsBefore.Contains(app)).ToList()
+                : new List<string>();
+            _knownApps[group.Id] = new HashSet<string>(runningFromThisGroup, ProcessNames.Comparer);
+
+            // Launch friction. A hold ends when it no longer makes sense: the apps closed, or the group was paused, entered a Blocked
+            // time (which closes its apps instead), or had the friction switched off.
+            var isHeld = _holds.Contains(group.Id);
+            if (isHeld && (runningFromThisGroup.Count == 0 || isPaused || cellState == CellState.Blocked || group.LaunchFrictionSeconds <= 0))
+            {
+                _holds.Remove(group.Id);
+                endedHolds.Add(group.Id);
+                isHeld = false;
+            }
+
+            // Newly started apps are held, unless a pause or a block applies, or the budget is gone (they'd be closed anyway).
+            var budgetIsGone = cellState == CellState.Limited
+                && _ledger.GetBudgetSecondsUsed(today, group.Id, group.CountMode) >= group.BudgetMinutesFor(budgetDayOfWeek) * 60.0;
+            if (newApps.Count > 0 && group.LaunchFrictionSeconds > 0 && !isPaused && cellState != CellState.Blocked && !budgetIsGone)
+            {
+                _holds.Add(group.Id);
+                newHolds.Add(new HoldRequest(group.Id, group.Name, newApps, group.LaunchFrictionSeconds));
+                isHeld = true;
+            }
+
+            if (isHeld)
+            {
+                continue; // frozen behind a countdown: nothing is counted, closed or warned about until it ends
+            }
 
             if (runningFromThisGroup.Count == 0)
             {
@@ -138,7 +195,8 @@ public sealed class EnforcementEngine
         }
 
         _lastTickAt = now;
-        return new TickResult(closes, alerts, statuses);
+        _hasTicked = true;
+        return new TickResult(closes, alerts, statuses, newHolds, endedHolds);
     }
 
     /// <summary>

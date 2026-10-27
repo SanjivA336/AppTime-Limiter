@@ -12,6 +12,19 @@ public interface IProcessController
     /// </summary>
     string? GetForegroundProcessName() => null;
 
+    /// <summary>
+    /// Freezes every running process with one of these names, so it does nothing until <see cref="Resume"/>. Returns the names that
+    /// could NOT be frozen (Windows or an anti-cheat refused, or none was running). By default nothing can be frozen, so a fake
+    /// that doesn't care leaves launch friction switched off.
+    /// </summary>
+    IReadOnlyList<string> Suspend(IReadOnlyCollection<string> processNames) => processNames.ToList();
+
+    /// <summary>Unfreezes what <see cref="Suspend"/> froze for these names.</summary>
+    void Resume(IReadOnlyCollection<string> processNames) { }
+
+    /// <summary>Unfreezes everything that was frozen. Called when HardCap quits, so nothing is left frozen behind it.</summary>
+    void ResumeAll() { }
+
     /// <summary>Closes every running process with one of these names. Returns the names that could not be closed.</summary>
     Task<IReadOnlyList<string>> CloseAsync(IReadOnlyCollection<string> processNames, CancellationToken cancellationToken = default);
 }

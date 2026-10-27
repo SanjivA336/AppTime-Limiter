@@ -64,6 +64,47 @@ internal sealed class FakeProcessController : IProcessController
 
     public IReadOnlyCollection<string> GetRunningProcessNames() => Running.ToList();
 
+    /// <summary>The names that are frozen right now (launch friction).</summary>
+    public HashSet<string> Frozen { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Names that "can't be frozen" (a protected game, a program running as administrator).</summary>
+    public HashSet<string> CannotFreeze { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public int ResumeAllCalls { get; private set; }
+
+    public IReadOnlyList<string> Suspend(IReadOnlyCollection<string> processNames)
+    {
+        var couldNot = new List<string>();
+        foreach (var name in processNames)
+        {
+            if (CannotFreeze.Contains(name) || !Running.Contains(name))
+            {
+                couldNot.Add(name);
+            }
+            else
+            {
+                Frozen.Add(name);
+            }
+        }
+
+        return couldNot;
+    }
+
+    public void Resume(IReadOnlyCollection<string> processNames)
+    {
+        foreach (var name in processNames)
+        {
+            Frozen.Remove(name);
+        }
+    }
+
+    public void ResumeAll()
+    {
+        ResumeAllCalls++;
+        Frozen.Clear();
+    }
+
+
     public async Task<IReadOnlyList<string>> CloseAsync(
         IReadOnlyCollection<string> processNames, CancellationToken cancellationToken = default)
     {

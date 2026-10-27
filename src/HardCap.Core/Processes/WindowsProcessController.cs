@@ -53,6 +53,119 @@ public sealed class WindowsProcessController : IProcessController
         }
     }
 
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint desiredAccess, bool inheritHandle, int processId);
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    [System.Runtime.InteropServices.DllImport("ntdll.dll")]
+    private static extern int NtSuspendProcess(IntPtr processHandle);
+
+    [System.Runtime.InteropServices.DllImport("ntdll.dll")]
+    private static extern int NtResumeProcess(IntPtr processHandle);
+
+    /// <summary>The only right needed to freeze or unfreeze a process.</summary>
+    private const uint ProcessSuspendResume = 0x0800;
+
+    // The processes this controller froze (id and name), so exactly those are unfrozen again.
+    private readonly Dictionary<int, string> _frozen = new();
+
+    /// <summary>
+    /// Freezes every running process with one of these names, a whole name at a time. A name counts as frozen if at least one process
+    /// of that name was. Core Windows processes and HardCap itself are never touched. A process that Windows refuses to open
+    /// (a protected game, a program running as administrator) is simply left running.
+    /// </summary>
+    public IReadOnlyList<string> Suspend(IReadOnlyCollection<string> processNames)
+    {
+        var couldNot = new List<string>();
+        foreach (var name in processNames)
+        {
+            if (ProcessNames.IsProtected(name))
+            {
+                couldNot.Add(name);
+                continue;
+            }
+
+            var frozeAny = false;
+            foreach (var process in Process.GetProcessesByName(name))
+            {
+                using (process)
+                {
+                    if (process.Id == Environment.ProcessId)
+                    {
+                        continue;
+                    }
+
+                    var handle = OpenProcess(ProcessSuspendResume, false, process.Id);
+                    if (handle == IntPtr.Zero)
+                    {
+                        continue; // refused
+                    }
+
+                    try
+                    {
+                        if (NtSuspendProcess(handle) >= 0)
+                        {
+                            _frozen[process.Id] = name;
+                            frozeAny = true;
+                        }
+                    }
+                    finally
+                    {
+                        CloseHandle(handle);
+                    }
+                }
+            }
+
+            if (!frozeAny)
+            {
+                couldNot.Add(name);
+            }
+        }
+
+        return couldNot;
+    }
+
+    public void Resume(IReadOnlyCollection<string> processNames)
+    {
+        var names = new HashSet<string>(processNames, ProcessNames.Comparer);
+        foreach (var (processId, name) in _frozen.ToList())
+        {
+            if (names.Contains(name))
+            {
+                ResumeOne(processId);
+            }
+        }
+    }
+
+    public void ResumeAll()
+    {
+        foreach (var processId in _frozen.Keys.ToList())
+        {
+            ResumeOne(processId);
+        }
+    }
+
+    private void ResumeOne(int processId)
+    {
+        _frozen.Remove(processId);
+        var handle = OpenProcess(ProcessSuspendResume, false, processId);
+        if (handle == IntPtr.Zero)
+        {
+            return; // it has already closed
+        }
+
+        try
+        {
+            NtResumeProcess(handle);
+        }
+        finally
+        {
+            CloseHandle(handle);
+        }
+    }
+
     public async Task<IReadOnlyList<string>> CloseAsync(
         IReadOnlyCollection<string> processNames, CancellationToken cancellationToken = default)
     {
