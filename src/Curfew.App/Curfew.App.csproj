@@ -11,6 +11,8 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <AssemblyName>Curfew</AssemblyName>
     <RootNamespace>Curfew.App</RootNamespace>
+    <!-- The version of a plain build. Releases pass -p:Version=X.Y.Z, which replaces this. -->
+    <Version>1.3.2</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 

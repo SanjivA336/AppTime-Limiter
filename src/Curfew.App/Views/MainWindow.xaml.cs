@@ -1,4 +1,5 @@
 using Curfew.App.Controls;
+using Curfew.App.Services;
 using Curfew.App.ViewModels;
 using Wpf.Ui.Abstractions;
 using Wpf.Ui.Appearance;
@@ -12,6 +13,9 @@ public partial class MainWindow : FluentWindow
     {
         InitializeComponent();
         SystemThemeWatcher.Watch(this);
+
+        // The version sits next to the name in the title bar, so it is easy to tell which copy is running.
+        TitleBar.Title = AppVersion.Label.Length == 0 ? "Curfew" : $"Curfew {AppVersion.Label}";
 
         // The navigation view builds pages by asking us; ours need the view model passed in.
         RootNavigation.SetPageProviderService(new PageProvider(viewModel));

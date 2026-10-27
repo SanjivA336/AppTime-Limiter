@@ -238,6 +238,8 @@
                                     <TextBlock Text="{Binding LaunchFrictionSummary}" VerticalAlignment="Center" FontWeight="SemiBold"
                                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                 </StackPanel>
+                                <TextBlock Text="Freezing an app as it starts may break things, especially games with anti-cheat. Try a short wait first, and turn this off for anything that misbehaves."
+                                           FontSize="12" TextWrapping="Wrap" Margin="0,12,0,0" Foreground="#F2994A" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
