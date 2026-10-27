@@ -42,9 +42,9 @@ LicenseFile=..\LICENSE
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; Flags: unchecked
 
 [InstallDelete]
-; Upgrading from the time the program was called HardCap: its program file and shortcuts are no longer wanted
-; (the shortcuts below are recreated under the new name).
-Type: files; Name: "{app}\HardCap.exe"
+; Upgrading from the time the program was called HardCap: its program files (HardCap.exe, HardCap.dll, HardCap.Core.dll and
+; the rest named HardCap.*) and shortcuts are no longer wanted (the shortcuts below are recreated under the new name).
+Type: files; Name: "{app}\HardCap.*"
 Type: files; Name: "{autoprograms}\HardCap.lnk"
 Type: files; Name: "{autodesktop}\HardCap.lnk"
 
