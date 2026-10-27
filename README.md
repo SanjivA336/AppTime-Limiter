@@ -1,14 +1,16 @@
 <p align="center">
-  <img src="src/HardCap.App/Assets/hardcap.png" alt="HardCap logo" width="128">
+  <img src="src/Curfew.App/Assets/curfew.png" alt="Curfew logo" width="128">
 </p>
 
-# HardCap
+# Curfew
 
 Set your limits once. Windows keeps you to them.
 
-HardCap closes the apps you choose when you've hit your daily time or you're outside your allowed hours. It started as a way to keep my own gaming in check, but it works with any app.
+Curfew closes the apps you choose when you've hit your daily time or you're outside your allowed hours. It started as a way to keep my own gaming in check, but it works with any app.
 
-> **Get it:** download `HardCap-Setup-1.2.0.exe` from the [latest release](https://github.com/SanjivA336/AppTime-Limiter/releases/latest) and run it. It installs for your account only (no admin prompt) and shows up in Add or remove programs. Windows may warn about an unknown publisher, because the installer isn't code-signed.
+Curfew was called HardCap before; your settings and usage history carry over automatically.
+
+> **Get it:** download the installer (`Curfew-Setup-<version>.exe`) from the [latest release](https://github.com/SanjivA336/AppTime-Limiter/releases/latest) and run it. It installs for your account only (no admin prompt) and shows up in Add or remove programs. Windows may warn about an unknown publisher, because the installer isn't code-signed.
 
 ## How it works
 
@@ -62,7 +64,7 @@ You'll need Windows 10 or 11 and the [.NET 10 SDK](https://dotnet.microsoft.com/
 ```powershell
 git clone <this repo>
 cd <this repo>
-dotnet run --project src/HardCap.App
+dotnet run --project src/Curfew.App
 ```
 
 To run the tests:
@@ -74,10 +76,10 @@ dotnet test
 Want a standalone build?
 
 ```powershell
-dotnet publish src/HardCap.App -c Release -r win-x64 --self-contained false -o publish
+dotnet publish src/Curfew.App -c Release -r win-x64 --self-contained false -o publish
 ```
 
-Want the installer? Install [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`), then run `tools/build-installer.ps1 -Version 1.2.0`. It publishes the app and writes `artifacts/HardCap-Setup-1.2.0.exe`. The script is `installer/HardCap.iss`; never change its `AppId`, or an upgrade would install a second copy.
+Want the installer? Install [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`), then run `tools/build-installer.ps1 -Version 1.2.0`. It publishes the app and writes `artifacts/Curfew-Setup-1.2.0.exe`. The script is `installer/Curfew.iss`; never change its `AppId`, or an upgrade would install a second copy.
 
 Working in VS Code? Press **F5**. The "dev data" profile keeps its settings in a throwaway `.dev-data` folder and never registers itself to start with Windows, so it can't mess with your real setup. Tasks for build, test and publish are in the Terminal > Run Task menu.
 
@@ -85,7 +87,7 @@ If you turn on *Start with Windows* and later move the `.exe`, just switch the s
 
 ## Where your stuff lives
 
-Everything is in `%LOCALAPPDATA%\HardCap\`:
+Everything is in `%LOCALAPPDATA%\Curfew\`:
 
 - `settings.json`: your groups, with each group's schedule, warnings, edit friction, grace period, pause, what counts and daily budgets, plus the general settings (daily reset, global friction, frictionless hours, away). Older files are upgraded automatically
 - `usage.json`: how long each group, and each of its apps, has been running and how long one of them was in front, day by day and hour by hour. Days older than 3 months are deleted automatically
@@ -134,9 +136,9 @@ Got an idea? Open an issue and say hi.
 ## Project layout
 
 ```
-src/HardCap.Core      The brains: schedule, budget, warnings, settings (no UI)
-src/HardCap.App       The Windows app: window, tray icon, notifications
-tests/HardCap.Tests   Tests for the brains
+src/Curfew.Core      The brains: schedule, budget, warnings, settings (no UI)
+src/Curfew.App       The Windows app: window, tray icon, notifications
+tests/Curfew.Tests   Tests for the brains
 ```
 
 The decisions about what to close and when to warn live in `EnforcementEngine` and `LimitForecast`. They're told the time and the running apps rather than looking them up, which is why the tests can try any scenario without waiting around for the real clock.

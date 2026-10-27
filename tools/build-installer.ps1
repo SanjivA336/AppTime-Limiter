@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Publishes HardCap and wraps it in an installer: artifacts\HardCap-Setup-<version>.exe
+  Publishes Curfew and wraps it in an installer: artifacts\Curfew-Setup-<version>.exe
 
 .EXAMPLE
   .\tools\build-installer.ps1 -Version 1.0.0
@@ -24,10 +24,10 @@ $iscc = @(
 if (-not $iscc) { throw 'Inno Setup 6 was not found. Install it with: winget install JRSoftware.InnoSetup' }
 
 if (Test-Path $publish) { Remove-Item $publish -Recurse -Force }
-dotnet publish (Join-Path $root 'src\HardCap.App') -c Release -r win-x64 --self-contained true "-p:Version=$Version" -o $publish
+dotnet publish (Join-Path $root 'src\Curfew.App') -c Release -r win-x64 --self-contained true "-p:Version=$Version" -o $publish
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed.' }
 
-& $iscc "/DAppVersion=$Version" "/DSourceDir=$publish" (Join-Path $root 'installer\HardCap.iss')
+& $iscc "/DAppVersion=$Version" "/DSourceDir=$publish" (Join-Path $root 'installer\Curfew.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed.' }
 
-Get-Item (Join-Path $root "artifacts\HardCap-Setup-$Version.exe") | Select-Object FullName, @{ n = 'MB'; e = { [math]::Round($_.Length / 1MB, 1) } }
+Get-Item (Join-Path $root "artifacts\Curfew-Setup-$Version.exe") | Select-Object FullName, @{ n = 'MB'; e = { [math]::Round($_.Length / 1MB, 1) } }

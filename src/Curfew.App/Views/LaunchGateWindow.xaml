@@ -1,0 +1,51 @@
+<ui:FluentWindow x:Class="Curfew.App.Views.LaunchGateWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:controls="clr-namespace:Curfew.App.Controls"
+                 Title="Curfew"
+                 Width="520" Height="520" MinWidth="440" MinHeight="460"
+                 WindowBackdropType="Mica"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowStartupLocation="CenterScreen"
+                 Topmost="True">
+    <!--
+        Launch friction: shown while a newly started app is frozen, in the same style as the "Quit Curfew" window. The countdown only
+        runs while this window is in front. When it ends, the person chooses to open the app or not. Closing the window any other way
+        means "don't open": the app is closed. This window is where other kinds of friction can appear later.
+    -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Curfew" ShowMinimize="False" ShowMaximize="False" />
+
+        <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24,0,24,24">
+            <!-- Still waiting -->
+            <StackPanel Visibility="{Binding IsWaiting, Converter={StaticResource BoolToVisibility}}">
+                <controls:WaitCountdownView DataContext="{Binding Countdown}"
+                                            Title="{Binding DataContext.Heading, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}"
+                                            Subtitle="Keep this window in front and the countdown runs; when it reaches zero, you can open it or not." />
+                <ui:Button Content="Don't open" HorizontalAlignment="Center" Margin="0,36,0,0" MinWidth="180"
+                           Click="DontOpen_Click" />
+            </StackPanel>
+
+            <!-- The wait is over -->
+            <StackPanel Visibility="{Binding IsReady, Converter={StaticResource BoolToVisibility}}" HorizontalAlignment="Center">
+                <ui:SymbolIcon Symbol="PlayCircle24" FontSize="56" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBlock Text="{Binding ReadyHeading}" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           Margin="0,16,0,6" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                <TextBlock Text="It stays frozen until you choose." HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,32,0,0">
+                    <ui:Button Content="Don't open" MinWidth="130" Margin="0,0,10,0" Click="DontOpen_Click" />
+                    <ui:Button Content="Open it" Appearance="Primary" MinWidth="130" Click="Open_Click" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</ui:FluentWindow>

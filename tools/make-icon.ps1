@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Builds HardCap's Windows icon (app.ico) from the logo PNG.
+    Builds Curfew's Windows icon (app.ico) from the logo PNG.
 
 .DESCRIPTION
     Windows wants one .ico file holding the icon at several sizes, and picks the size that suits where it is shown
@@ -13,8 +13,8 @@
         powershell -ExecutionPolicy Bypass -File tools\make-icon.ps1
 #>
 param(
-    [string]$Source = "src\HardCap.App\Assets\hardcap.png",
-    [string]$Output = "src\HardCap.App\Assets\app.ico"
+    [string]$Source = "src\Curfew.App\Assets\curfew.png",
+    [string]$Output = "src\Curfew.App\Assets\app.ico"
 )
 
 Add-Type -AssemblyName System.Drawing

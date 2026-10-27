@@ -1,0 +1,27 @@
+<UserControl x:Class="Curfew.App.Controls.WaitCountdownView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             x:Name="Root">
+    <!--
+        The big countdown shown while you wait to open something. Its DataContext is a WaitCountdown. The heading and
+        the line under it are set by whoever uses it. When the window isn't the active one the countdown stops, and
+        the line at the bottom says so.
+    -->
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+        <ui:SymbolIcon Symbol="LockClosed24" FontSize="56" HorizontalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        <TextBlock Text="{Binding Title, ElementName=Root}" FontSize="24" FontWeight="SemiBold"
+                   HorizontalAlignment="Center" Margin="0,16,0,6"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+        <TextBlock Text="{Binding Subtitle, ElementName=Root}" HorizontalAlignment="Center" TextAlignment="Center"
+                   TextWrapping="Wrap" MaxWidth="420"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        <TextBlock Text="{Binding RemainingText}" FontSize="72" FontWeight="SemiBold" HorizontalAlignment="Center"
+                   Margin="0,28,0,16" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+        <ProgressBar Width="320" Height="6" Minimum="0" Maximum="1" Value="{Binding Progress, Mode=OneWay}" />
+        <TextBlock Text="Countdown paused. Come back to this window to continue." HorizontalAlignment="Center" Margin="0,14,0,0"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   Visibility="{Binding IsPaused, Converter={StaticResource BoolToVisibility}}" />
+    </StackPanel>
+</UserControl>

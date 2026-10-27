@@ -5,4 +5,4 @@
 ## Checklist
 
 - [ ] `dotnet test` passes
-- [ ] New behavior has a test (if it touches the rules in `HardCap.Core`)
+- [ ] New behavior has a test (if it touches the rules in `Curfew.Core`)
