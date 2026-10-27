@@ -33,14 +33,15 @@ When an app has to go, it's asked nicely first so it can save. If it hasn't clos
 - A card for each group, showing its color, its first few apps (with their icons), and where it stands right now: Limited with the time you have left, or Free or Blocked along with when that ends (like "Blocked until today at 6:00 PM"). If you've used up the day's budget, a Limited group shows as Blocked until the next Free time, or until the budget resets
 - Groups with Limited time get a bar along the bottom of their card: green, blue or red for the state right now, shrinking as the day's budget is spent. It glows while one of the group's apps is running, and drifting stripes and a pulsing glow show when that app is using up your budget
 - Click a card to edit that group, with its name, color, apps and warnings on one tab and its schedule on another. Nothing changes until you press **Save changes**: closing the window cancels, and **Revert** puts everything back without closing
-- An optional lock for each group, from 5 seconds up to 5 minutes. A locked group opens to nothing but a countdown, and you can't see or change anything about it (including deleting it) until it reaches zero. Every time you open it, the wait starts over. The countdown only runs while its window is in front, so you can't sit it out in the background
+- An optional **Edit friction** for each group: a wait from 5 seconds up to 5 minutes before the group can be opened. It opens to nothing but a countdown, and you can't see or change anything about it (including deleting it) until it reaches zero. Every time you open it, the wait starts over. The countdown only runs while its window is in front, so you can't sit it out in the background
 - Each group has its own budget for each day of the week, set right above that day's column (it appears once the group has some Limited time)
 - A paint-it-yourself weekly grid, plus "copy this day to…" (it copies the day's budget too) so you don't repeat yourself
 - Warnings before time runs out, and an optional per-group **grace period** (up to 5 minutes) to save when a limit starts while an app is running. An app opened during a block is closed straight away
-- **Pause** a group for a while (30 minutes, a few hours, until a day and time, or until you resume it). A paused group is treated as Free. Pausing lives in the group's settings, so it waits behind the lock
-- **Count time** (per group): the budget can be spent whenever the group's apps are running (the default), or only while one of them is in front, which stops background helpers and a forgotten launcher from eating your budget. Both amounts are always recorded, closing an app never depends on which you pick, and Microsoft Store apps are not recognised as "in front".
-- **Away detection** (off by default, in Settings): after 1 to 60 minutes without keyboard or mouse input, time stops counting toward budgets and in Analytics until you are back. Limits are still enforced, and game controllers are not detected, so controller play can look like being away.
-- A **Settings** page (bottom of the sidebar): choose when a new day starts (say 4 AM if you stay up late), set a general wait before opening groups, the settings, or quitting, with optional **open hours** when there is no wait, and export or import your settings
+- **Pause** a group for a while (30 minutes, a few hours, until a day and time, or until you resume it). A paused group is treated as Free. Pausing lives in the group's settings, so it waits behind the Edit friction. While a group is paused its Edit friction is ignored (the saved setting is not changed, and it applies again when the pause ends).
+- **What counts** (per group): the budget can be spent any time the group's apps are running (the default), or only when one of them is in front, which stops background helpers and a forgotten launcher from eating your budget. Both amounts are always recorded, closing an app never depends on which you pick, and Microsoft Store apps are not recognised as "in front".
+- **Launch friction** (per group, off by default): when one of a group's apps starts, it is frozen and a small window like the quit one appears; its countdown (up to 60 seconds) only runs while that window is in front, then you choose to open the app or not. Closing the window, or leaving it for 5 minutes, closes the app. It never closes and relaunches an app, a paused group skips it, and an app that can't be frozen (some games with anti-cheat) is left alone with a notice. Freezing is not tampering with a game, but a freeze in the middle of a launch can upset online games, so try a short wait first.
+- **Away** (off by default, in Settings): after 1 to 60 minutes without keyboard or mouse input, time stops counting toward budgets and in Analytics until you are back. Limits are still enforced, and game controllers are not detected, so controller play can look like being away.
+- A **Settings** page (bottom of the sidebar): choose when your **daily reset** happens (say 4 AM if you stay up late), set a **Global friction** wait before opening the settings or quitting, with optional **frictionless hours** when there is no wait, and export or import your settings. Like a group, the page works on a draft: nothing changes until you press "Save changes", and "Revert" puts everything back
 - An **Analytics** page, in the style of Screen Time. Pick any mix of groups (or none, or "Select all"), and look at a **day**, a **week** or a **month**, stepping back as far as you like (it says "No data for…" when a period is empty). Each view has a headline number with how it compares with earlier weeks, a few totals, and a bar for each group or app:
   - **Day:** stacked columns for each hour of the day, split by group (hour-by-hour detail is recorded from the version that added it onward)
   - **Week:** stacked columns for each day, split by group; click a day to open it
@@ -50,7 +51,7 @@ When an app has to go, it's asked nicely first so it can save. If it hasn't clos
 - Add apps by picking a running one, searching your installed apps, or browsing for the program file. Anti-cheat and helper programs are flagged, because they run all day and would eat your budget
 - A tray icon, so it keeps working after you close the window
 - An option to start with Windows
-- Quitting from the tray waits too: as long as your longest group lock, or the general wait
+- Quitting from the tray waits too: as long as your longest Edit friction, or the Global friction
 - No admin rights, no account, no cloud, no tracking. Everything stays on your PC.
 - Safety rails: it won't let you limit core Windows stuff like `explorer`, so you can't lock yourself out of your own desktop
 
@@ -86,7 +87,7 @@ If you turn on *Start with Windows* and later move the `.exe`, just switch the s
 
 Everything is in `%LOCALAPPDATA%\HardCap\`:
 
-- `settings.json`: your groups, with each group's schedule, warnings, lock, grace period, pause and daily budgets, plus the general settings (new-day time, wait, open hours). Older files are upgraded automatically
+- `settings.json`: your groups, with each group's schedule, warnings, edit friction, grace period, pause, what counts and daily budgets, plus the general settings (daily reset, global friction, frictionless hours, away). Older files are upgraded automatically
 - `usage.json`: how long each group, and each of its apps, has been running and how long one of them was in front, day by day and hour by hour. Days older than 3 months are deleted automatically
 - `app.log`: a small log, handy if something looks off
 
@@ -115,15 +116,17 @@ This is a self-control tool, not a security system.
 - [x] Browse for or search any app, not only running ones
 - [x] A grace period before an app is closed
 - [x] Pause a group for a while
-- [x] Count time only while an app is in front
+- [x] What counts: count time only when an app is in front
 - [x] Stop counting time while you are away from the computer
-- [x] A custom time for the day to reset
-- [x] A settings page with a wait (and open hours) before opening groups, settings, or quitting
+- [x] Launch friction: hold a newly started app behind a countdown
+- [x] A custom daily reset
+- [x] A Global friction wait (with frictionless hours) before opening the settings or quitting, and an Edit friction for each group
 - [x] Export and import your settings
 - [x] Analytics page: see where your time actually goes
 
 **Planned**
 - [ ] Website blocking through a browser extension
+- [ ] Pick a different activity instead of waiting, such as a few math questions, a puzzle or typing a sentence
 - [x] An installer, so you don't need to build it yourself
 
 Got an idea? Open an issue and say hi.

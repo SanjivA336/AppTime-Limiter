@@ -18,7 +18,7 @@ public sealed class DurationInput : ObservableObject
 
     /// <param name="getSeconds">Reads the stored length.</param>
     /// <param name="setSeconds">Stores a new length. Only called when the length really changed.</param>
-    /// <param name="zeroText">What the summary says when the length is 0, such as "No lock".</param>
+    /// <param name="zeroText">What the summary says when the length is 0, such as "No wait".</param>
     public DurationInput(Func<int> getSeconds, Action<int> setSeconds, string zeroText)
     {
         _getSeconds = getSeconds;

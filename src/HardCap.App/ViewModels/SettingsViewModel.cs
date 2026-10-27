@@ -5,13 +5,17 @@ using HardCap.Core.Settings;
 namespace HardCap.App.ViewModels;
 
 /// <summary>
-/// The Settings page: things that belong to the whole app rather than one group. Everything here takes effect as soon as
-/// it is changed. Because several of these settings can loosen the rules (the reset time, the wait and open hours,
-/// importing), the whole page sits behind the general wait, shown as a countdown each time the page is opened.
+/// The Settings page: things that belong to the whole app rather than one group. Like the group editor, it edits a draft: nothing
+/// takes effect until "Save changes", "Revert" puts the draft back to what is saved, and leaving the page throws the draft away.
+/// Because several of these settings can loosen the rules (the reset time, the wait and frictionless hours, importing), the whole
+/// page sits behind the global friction, shown as a countdown each time the page is opened.
 /// </summary>
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly MainViewModel _main;
+
+    // What the page edits. Only the app-wide settings are in it (no groups); Save copies them into the real settings.
+    private readonly AppSettings _draft = new();
 
     /// <summary>The result of the last export or import, or a problem with it.</summary>
     [ObservableProperty]
@@ -26,17 +30,63 @@ public sealed partial class SettingsViewModel : ObservableObject
     public SettingsViewModel(MainViewModel main)
     {
         _main = main;
+        LoadDraft();
         Wait = new DurationInput(() => Settings.WaitSeconds, SetWaitSeconds, "No wait");
-        _main.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(MainViewModel.StartWithWindows))
-            {
-                OnPropertyChanged(nameof(StartWithWindows));
-            }
-        };
     }
 
-    private AppSettings Settings => _main.Settings;
+    /// <summary>The draft: what every box and switch on the page reads and writes.</summary>
+    private AppSettings Settings => _draft;
+
+    /// <summary>Starts the draft over from what is saved.</summary>
+    private void LoadDraft()
+    {
+        _draft.CopyGeneralSettingsFrom(_main.Settings);
+        _draft.StartWithWindows = _main.Settings.StartWithWindows;
+    }
+
+    /// <summary>True when something on the page differs from what is saved. It enables Save and Revert.</summary>
+    public bool HasChanges =>
+        !_draft.HasSameGeneralSettingsAs(_main.Settings) || _draft.StartWithWindows != _main.Settings.StartWithWindows;
+
+    /// <summary>The opposite, for the things that need everything saved first (export and import).</summary>
+    public bool NoChanges => !HasChanges;
+
+    /// <summary>
+    /// Makes the draft real: copies it into the settings, applies Start with Windows to Windows, and saves. If Windows refuses
+    /// the startup change, the setting stays as it was and a notice says why.
+    /// </summary>
+    public void Save()
+    {
+        if (!HasChanges)
+        {
+            return;
+        }
+
+        _main.Settings.CopyGeneralSettingsFrom(_draft);
+        if (_draft.StartWithWindows != _main.Settings.StartWithWindows)
+        {
+            _main.StartWithWindows = _draft.StartWithWindows; // writes to Windows; on a problem it shows a notice and leaves the setting alone
+        }
+
+        _main.RequestSave();
+        Reload();
+        Message = "Saved your settings.";
+    }
+
+    /// <summary>Puts every box and switch back to what is saved, without leaving the page.</summary>
+    public void Revert()
+    {
+        Reload();
+        Message = null;
+    }
+
+    /// <summary>Starts the draft over from what is saved and refreshes everything on the page.</summary>
+    private void Reload()
+    {
+        LoadDraft();
+        Wait.Refresh();
+        OnPropertyChanged(string.Empty); // every setting on the page may have changed
+    }
 
     public bool IsUnlocked => !IsLocked;
 
@@ -49,7 +99,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         EndWait();
         Message = null;
 
-        var seconds = WaitRules.SettingsWaitSeconds(Settings, DateTime.Now);
+        var seconds = WaitRules.SettingsWaitSeconds(_main.Settings, DateTime.Now); // what is saved, not the draft
         if (seconds > 0)
         {
             Countdown = new WaitCountdown(seconds);
@@ -72,8 +122,18 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public bool StartWithWindows
     {
-        get => _main.StartWithWindows;
-        set => _main.StartWithWindows = value;
+        get => _draft.StartWithWindows;
+        set
+        {
+            if (value == _draft.StartWithWindows)
+            {
+                return;
+            }
+
+            _draft.StartWithWindows = value;
+            OnPropertyChanged();
+            Changed();
+        }
     }
 
     // ---- When budgets refill ----
@@ -103,7 +163,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     // ---- Waiting ----
 
-    /// <summary>The general wait before the settings, a group or quitting (up to 5 minutes), as minutes and seconds boxes.</summary>
+    /// <summary>The general wait before the settings or quitting (up to 5 minutes), as minutes and seconds boxes.</summary>
     public DurationInput Wait { get; }
 
     private void SetWaitSeconds(int seconds)
@@ -167,20 +227,20 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             if (Settings.WaitSeconds == 0)
             {
-                return "No general wait is set, so only groups with their own lock make you wait.";
+                return "No global friction is set, so the settings open straight away (quitting still waits for your longest Edit friction).";
             }
 
             var wait = LockTime.Describe(Settings.WaitSeconds);
             if (!Settings.OpenHoursEnabled)
             {
-                return $"Opening a group, the settings, or quitting waits {wait}, at any time of day.";
+                return $"Opening the settings or quitting waits {wait}, at any time of day.";
             }
 
             var from = BudgetDay.Describe(Settings.OpenHoursStartMinutes);
             var to = BudgetDay.Describe(Settings.OpenHoursEndMinutes);
             return Settings.OpenHoursStartMinutes == Settings.OpenHoursEndMinutes
-                ? "Open hours start and end at the same time, so they are empty."
-                : $"No wait between {from} and {to}; at other times, opening a group, the settings or quitting waits {wait} (a group's own lock still applies, and the longer wait wins).";
+                ? "Frictionless hours start and end at the same time, so they are empty."
+                : $"No friction between {from} and {to}; at other times, opening the settings or quitting waits {wait}.";
         }
     }
 
@@ -249,7 +309,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         try
         {
             _main.SaveNow();
-            new SettingsStore(path).Save(Settings);
+            new SettingsStore(path).Save(_main.Settings); // what is saved, with the groups
             Message = $"Saved your settings to {System.IO.Path.GetFileName(path)}.";
             return true;
         }
@@ -271,8 +331,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         _main.ReplaceSettings(loaded.Settings);
-        Wait.Refresh();
-        OnPropertyChanged(string.Empty); // every setting on the page may have changed
+        Reload();
 
         var groupCount = loaded.Settings.Groups.Count;
         var repairCount = loaded.Repairs.Count;
@@ -281,5 +340,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         return true;
     }
 
-    private void Changed() => _main.RequestSave();
+    /// <summary>Called after any edit: the draft may now differ from what is saved, which enables Save and Revert.</summary>
+    private void Changed() => OnPropertyChanged(nameof(HasChanges));
 }

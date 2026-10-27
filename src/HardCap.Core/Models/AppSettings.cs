@@ -8,9 +8,9 @@ public sealed class AppSettings
     /// <summary>
     /// 1 = one budget for every day. 2 = one budget for each day of the week, shared by all groups.
     /// 3 = every group has its own budget for each day. 4 = adds the reset time, the settings wait and open hours,
-    /// and each group's grace period and pause. 5 = each group's count mode. 6 = the idle setting. Older files are upgraded automatically when they are loaded.
+    /// and each group's grace period and pause. 5 = each group's count mode. 6 = the idle setting. 7 = each group's launch friction. Older files are upgraded automatically when they are loaded.
     /// </summary>
-    public const int CurrentSchemaVersion = 6;
+    public const int CurrentSchemaVersion = 7;
 
     /// <summary>The longest wait that can be set for the settings and for quitting: five minutes (like a group's lock).</summary>
     public const int MaxWaitSeconds = AppGroup.MaxLockSeconds;
@@ -81,6 +81,16 @@ public sealed class AppSettings
     public void ReplaceWith(AppSettings other)
     {
         Groups = other.Groups.Select(g => g.Clone()).ToList();
+        CopyGeneralSettingsFrom(other);
+    }
+
+    /// <summary>
+    /// Copies the settings that belong to the whole app (the reset time, the global wait and frictionless hours, the away setting) from
+    /// <paramref name="other"/>. Not the groups, and not <see cref="StartWithWindows"/>, which is applied to Windows separately.
+    /// The Settings page edits a draft made this way and copies it back when "Save changes" is pressed.
+    /// </summary>
+    public void CopyGeneralSettingsFrom(AppSettings other)
+    {
         ResetMinutes = other.ResetMinutes;
         WaitSeconds = other.WaitSeconds;
         OpenHoursEnabled = other.OpenHoursEnabled;
@@ -89,4 +99,14 @@ public sealed class AppSettings
         IdleDetectionEnabled = other.IdleDetectionEnabled;
         IdleMinutes = other.IdleMinutes;
     }
+
+    /// <summary>True if the settings <see cref="CopyGeneralSettingsFrom"/> copies are the same in both (the groups and Start with Windows are not compared).</summary>
+    public bool HasSameGeneralSettingsAs(AppSettings other) =>
+        ResetMinutes == other.ResetMinutes
+        && WaitSeconds == other.WaitSeconds
+        && OpenHoursEnabled == other.OpenHoursEnabled
+        && OpenHoursStartMinutes == other.OpenHoursStartMinutes
+        && OpenHoursEndMinutes == other.OpenHoursEndMinutes
+        && IdleDetectionEnabled == other.IdleDetectionEnabled
+        && IdleMinutes == other.IdleMinutes;
 }

@@ -17,7 +17,7 @@ public partial class WaitCountdownView : UserControl
         InitializeComponent();
     }
 
-    /// <summary>The heading, such as "This group is locked".</summary>
+    /// <summary>The heading, such as "Waiting to open this group".</summary>
     public string Title
     {
         get => (string)GetValue(TitleProperty);

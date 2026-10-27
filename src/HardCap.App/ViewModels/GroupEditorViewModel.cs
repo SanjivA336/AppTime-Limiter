@@ -49,7 +49,7 @@ public sealed partial class GroupEditorViewModel : ObservableObject
         DayBudgets = new ObservableCollection<DayBudgetViewModel>(
             ScheduleGridLayout.ColumnDays.Select(day => new DayBudgetViewModel(day, this)));
 
-        Lock = new DurationInput(() => Draft.LockSeconds, SetLockSeconds, "No lock");
+        Lock = new DurationInput(() => Draft.LockSeconds, SetLockSeconds, "No wait");
         Grace = new DurationInput(() => Draft.GraceSeconds, SetGraceSeconds, "No grace period");
         BuildPauseChoices();
 
@@ -57,9 +57,9 @@ public sealed partial class GroupEditorViewModel : ObservableObject
         LoadPauseFromDraft();
         RefreshDerivedValues();
 
-        // The wait is the longer of the group's own lock and the general wait (which doesn't apply in open hours).
+        // Opening a group waits for that group's own lock only (none while it is paused); the general wait is not used here.
         // A brand-new group has nothing to protect yet, so it doesn't wait.
-        var waitSeconds = _session.IsNew ? 0 : WaitRules.GroupWaitSeconds(main.Settings, card.Model, DateTime.Now);
+        var waitSeconds = _session.IsNew ? 0 : WaitRules.GroupWaitSeconds(card.Model, DateTime.Now);
         if (waitSeconds > 0)
         {
             IsLocked = true;
@@ -211,6 +211,33 @@ public sealed partial class GroupEditorViewModel : ObservableObject
         get => !CountsWhileInFront;
         set => CountsWhileInFront = !value;
     }
+
+    // ---- Launch friction ----
+
+    /// <summary>Launch friction in seconds (0 to 60, in steps of 5), as the number box's value. 0 means off.</summary>
+    public double LaunchFrictionSeconds
+    {
+        get => Draft.LaunchFrictionSeconds;
+        set
+        {
+            if (!double.IsNaN(value))
+            {
+                var seconds = Math.Clamp((int)Math.Round(value / 5.0) * 5, 0, AppGroup.MaxLaunchFrictionSeconds);
+                if (seconds != Draft.LaunchFrictionSeconds)
+                {
+                    Draft.LaunchFrictionSeconds = seconds;
+                    OnPropertyChanged(nameof(LaunchFrictionSummary));
+                    NotifyEdited();
+                }
+            }
+
+            OnPropertyChanged(); // so the box shows the tidied number, even when it was out of range
+        }
+    }
+
+    public string LaunchFrictionSummary => Draft.LaunchFrictionSeconds == 0
+        ? "Off: apps open straight away."
+        : $"A new app of this group is held for {LockTime.Describe(Draft.LaunchFrictionSeconds)}.";
 
     /// <summary>Stops the countdown timer. Called when the window closes.</summary>
     public void StopCountdown() => Countdown?.Stop();
@@ -585,6 +612,8 @@ public sealed partial class GroupEditorViewModel : ObservableObject
         Grace.Refresh();
         OnPropertyChanged(nameof(CountsWhileInFront));
         OnPropertyChanged(nameof(CountsWhileRunning));
+        OnPropertyChanged(nameof(LaunchFrictionSeconds));
+        OnPropertyChanged(nameof(LaunchFrictionSummary));
         LoadPauseFromDraft();
         NotifyEdited();
     }

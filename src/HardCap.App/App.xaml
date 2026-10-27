@@ -187,6 +187,53 @@
                 </Setter>
             </Style>
 
+            <!--
+                The section list on the left of a settings screen when it is wide enough (see SectionSidebar): an icon and a name for
+                each section, like the sidebar of a system settings app. The chosen row is highlighted by the list itself.
+            -->
+            <DataTemplate x:Key="SectionSidebarItem">
+                <StackPanel Orientation="Horizontal" Margin="2,5">
+                    <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="18" Margin="0,0,12,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
+                </StackPanel>
+            </DataTemplate>
+
+            <!-- One row of that list: rounded, with the chosen row filled in the accent color and a soft fill under the mouse. -->
+            <Style x:Key="SectionSidebarRow" TargetType="ListBoxItem">
+                <Setter Property="Padding" Value="10,4" />
+                <Setter Property="Margin" Value="0,2" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="Row" CornerRadius="8" Background="Transparent" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="SectionSidebarList" TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
+                <Setter Property="ItemContainerStyle" Value="{StaticResource SectionSidebarRow}" />
+                <Setter Property="Width" Value="210" />
+                <Setter Property="Margin" Value="0,14,16,0" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="VerticalAlignment" Value="Top" />
+                <Setter Property="ItemTemplate" Value="{StaticResource SectionSidebarItem}" />
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Style>
+
             <!-- A whole card that can be clicked, with hover, press and keyboard-focus looks. -->
             <Style x:Key="CardButton" TargetType="Button">
                 <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />

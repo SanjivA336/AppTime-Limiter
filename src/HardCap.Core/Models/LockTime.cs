@@ -38,8 +38,8 @@ public static class LockTime
         return $"{minutes}:{seconds:00}";
     }
 
-    /// <summary>"No lock", "30 seconds", "1 minute", "1 minute 15 seconds": the length in words.</summary>
-    public static string Describe(int totalSeconds) => Describe(totalSeconds, "No lock");
+    /// <summary>"No wait", "30 seconds", "1 minute", "1 minute 15 seconds": the length in words.</summary>
+    public static string Describe(int totalSeconds) => Describe(totalSeconds, "No wait");
 
     /// <summary>The length in words, or <paramref name="zeroText"/> (such as "No grace period") when it is 0.</summary>
     public static string Describe(int totalSeconds, string zeroText)

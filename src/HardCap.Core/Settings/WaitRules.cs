@@ -3,11 +3,12 @@ using HardCap.Core.Models;
 namespace HardCap.Core.Settings;
 
 /// <summary>
-/// How long you have to wait before you may look at or change something. Two things can make you wait:
-///   a group's own lock (always, whatever the time), and
-///   the general wait from the settings (but not during the open hours, when you can change things freely).
-/// When both apply, the longer one is used, not the two added together: a 1-minute lock and a 3-minute general wait
-/// make you wait 3 minutes, never 4.
+/// How long you have to wait before you may look at or change something. Each thing has its own wait:
+///   opening a group: that group's own lock (always, whatever the time, except while the group is paused);
+///   opening the settings page: the general wait from the settings (but not during the open hours, when you can change things freely);
+///   quitting: the general wait or the longest lock of any group that isn't paused, whichever is longer.
+/// Where two waits apply to the same thing (quitting), the longer one is used, not the two added together: a 1-minute lock and
+/// a 3-minute general wait make you wait 3 minutes, never 4.
 /// </summary>
 public static class WaitRules
 {
@@ -41,17 +42,19 @@ public static class WaitRules
     /// <summary>The wait before opening the settings page.</summary>
     public static int SettingsWaitSeconds(AppSettings settings, DateTime now) => GeneralWaitSeconds(settings, now);
 
-    /// <summary>The wait before opening one group: its own lock or the general wait, whichever is longer.</summary>
-    public static int GroupWaitSeconds(AppSettings settings, AppGroup group, DateTime now) =>
-        Math.Max(Math.Clamp(group.LockSeconds, 0, AppGroup.MaxLockSeconds), GeneralWaitSeconds(settings, now));
+    /// <summary>
+    /// The wait before opening one group: only its own lock (none while it is paused). The general wait does not apply to groups;
+    /// it is for the settings page and for quitting.
+    /// </summary>
+    public static int GroupWaitSeconds(AppGroup group, DateTime now) => group.LockSecondsAt(now);
 
     /// <summary>
     /// The wait before quitting HardCap. Quitting switches every limit off, so it waits as long as the
-    /// longest lock of any group (or the general wait, if that is longer).
+    /// longest lock of any group that isn't paused (or the general wait, if that is longer).
     /// </summary>
     public static int ExitWaitSeconds(AppSettings settings, DateTime now)
     {
-        var longestLock = settings.Groups.Count == 0 ? 0 : settings.Groups.Max(g => Math.Clamp(g.LockSeconds, 0, AppGroup.MaxLockSeconds));
+        var longestLock = settings.Groups.Count == 0 ? 0 : settings.Groups.Max(g => g.LockSecondsAt(now));
         return Math.Max(longestLock, GeneralWaitSeconds(settings, now));
     }
 }

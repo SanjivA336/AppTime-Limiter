@@ -271,7 +271,7 @@
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource SectionTitle}" Text="Time by group" />
                                         <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
-                                                   Text="How long each was running. Point at a group to see its apps." />
+                                                   Text="Time used by each group. Point at a group to see its apps." />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                                         <RadioButton GroupName="kind" Content="Groups" MinWidth="0" Margin="0,0,10,0"

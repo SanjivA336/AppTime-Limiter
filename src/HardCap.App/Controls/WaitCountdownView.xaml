@@ -20,7 +20,7 @@
         <TextBlock Text="{Binding RemainingText}" FontSize="72" FontWeight="SemiBold" HorizontalAlignment="Center"
                    Margin="0,28,0,16" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
         <ProgressBar Width="320" Height="6" Minimum="0" Maximum="1" Value="{Binding Progress, Mode=OneWay}" />
-        <TextBlock Text="Paused. Come back to this window to keep waiting." HorizontalAlignment="Center" Margin="0,14,0,0"
+        <TextBlock Text="Countdown paused. Come back to this window to continue." HorizontalAlignment="Center" Margin="0,14,0,0"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                    Visibility="{Binding IsPaused, Converter={StaticResource BoolToVisibility}}" />
     </StackPanel>

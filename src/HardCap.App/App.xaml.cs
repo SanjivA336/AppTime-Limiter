@@ -18,10 +18,16 @@ public partial class App : Application
     /// <summary>How often running apps are checked. Short, so a blocked app doesn't stay open for long.</summary>
     private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(3);
 
+    /// <summary>Checked this often while any group uses launch friction, so a new app is held within a second of starting.</summary>
+    private static readonly TimeSpan FastCheckInterval = TimeSpan.FromSeconds(1);
+
     private SingleInstance? _singleInstance;
     private TrayService? _tray;
     private EnforcementRunner? _runner;
     private DispatcherTimer? _checkTimer;
+
+    // The countdown windows shown right now, by group (launch friction).
+    private readonly Dictionary<Guid, LaunchGateWindow> _gates = new();
     private MainViewModel? _viewModel;
     private MainWindow? _window;
     private bool _isExiting;
@@ -150,6 +156,11 @@ public partial class App : Application
         _tray = new TrayService(ShowWindow, RequestExit);
         _runner = new EnforcementRunner(() => saved.Settings, new WindowsProcessController(), _tray, saved.Ledger, new WindowsIdleProbe());
         _runner.Ticked += _viewModel!.OnTick;
+        _runner.HoldStarted += OnHoldStarted;
+        _runner.HoldEnded += OnHoldEnded;
+
+        // Whatever way HardCap ends, nothing it froze is left frozen.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => _runner?.ReleaseAllHolds();
 
         // A second launch asks us to show the window; that request arrives on a background thread.
         _singleInstance!.ListenForShowRequests(() => Dispatcher.BeginInvoke(ShowWindow));
@@ -165,11 +176,46 @@ public partial class App : Application
         }
     }
 
+    // ---- Launch friction: the countdown over everything while a new app is frozen ----
+
+    private void OnHoldStarted(HoldRequest request)
+    {
+        if (_gates.ContainsKey(request.GroupId))
+        {
+            return; // the runner joins extra apps to the same hold; one countdown is enough
+        }
+
+        var gate = new LaunchGateWindow(request);
+        gate.Completed += id => _runner?.CompleteHold(id);
+        gate.Cancelled += id => _ = _runner?.CancelHoldAsync(id); // the person chose not to open it: unfreeze, then close
+        gate.Closed += (_, _) => _gates.Remove(request.GroupId);
+        _gates[request.GroupId] = gate;
+        gate.Show();
+        gate.Activate();
+    }
+
+    /// <summary>The hold ended (the countdown ran out, a pause began, the app closed...): take the countdown down.</summary>
+    private void OnHoldEnded(Guid groupId)
+    {
+        if (_gates.TryGetValue(groupId, out var gate))
+        {
+            gate.CloseQuietly();
+        }
+    }
+
+
     private async Task RunOneCheckAsync()
     {
         try
         {
             await _runner!.RunOnceAsync(DateTime.Now);
+
+            // Check more often while any group has launch friction on, so a new app is held right away.
+            var wanted = _viewModel!.Settings.Groups.Any(g => g.LaunchFrictionSeconds > 0) ? FastCheckInterval : CheckInterval;
+            if (_checkTimer is not null && _checkTimer.Interval != wanted)
+            {
+                _checkTimer.Interval = wanted;
+            }
         }
         catch (Exception ex)
         {
@@ -226,6 +272,13 @@ public partial class App : Application
             picker.Show();
             windowToCapture = picker;
         }
+        else if (options.ScreenshotGate)
+        {
+            // --gate: capture the launch friction countdown that appears over everything while a new app is frozen.
+            var gate = new LaunchGateWindow(new HoldRequest(Guid.NewGuid(), "Games", new[] { "Warframe.x64" }, 30));
+            gate.Show();
+            windowToCapture = gate;
+        }
         else if (options.ScreenshotEditor && _viewModel!.Groups.Count > 0)
         {
             // --editor: capture the group editor for the first group (also non-modal).
@@ -236,6 +289,11 @@ public partial class App : Application
             editor.Height = SystemParameters.WorkArea.Height;
             editor.Show();
             editor.SelectTab(options.EditorTab);
+            if (options.EditorSection is { } section)
+            {
+                editor.SelectSection(section);
+            }
+
             windowToCapture = editor;
         }
 
@@ -383,6 +441,7 @@ public partial class App : Application
     {
         _isExiting = true;
         _checkTimer?.Stop();
+        _runner?.ReleaseAllHolds(); // unfreeze anything held behind a countdown, and take the countdowns down
         _viewModel?.SaveNow();
         _runner?.Flush();
         _tray?.Dispose();

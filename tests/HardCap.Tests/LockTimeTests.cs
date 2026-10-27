@@ -114,7 +114,7 @@ public class LockTimeTests
     }
 
     [Theory]
-    [InlineData(0, "No lock")]
+    [InlineData(0, "No wait")]
     [InlineData(1, "1 second")]
     [InlineData(5, "5 seconds")]
     [InlineData(60, "1 minute")]

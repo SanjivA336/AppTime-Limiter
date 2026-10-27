@@ -438,7 +438,7 @@ public sealed partial class AnalyticsViewModel : ObservableObject
                 }
 
                 Tile2Text = Duration(report.TotalSeconds);
-                Tile3Label = "Weekly average";
+                Tile3Label = "Average week";
                 Tile3Text = report.PreviousWeeklyAverageSeconds is double typicalWeek ? Duration(typicalWeek) : "—";
                 break;
 

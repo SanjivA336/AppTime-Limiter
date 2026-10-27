@@ -49,6 +49,36 @@ public partial class GroupEditorWindow : FluentWindow
         // Whatever way the window closes, stop the lock countdown's timer.
         Closed += (_, _) => _editor.StopCountdown();
 
+        _tabsBorder = Tabs.BorderThickness;
+
+        // When the window is wide, the cards are listed in a sidebar and the tabs step aside.
+        _sidebar = new SectionSidebar(
+            Sidebar,
+            new SectionItem[]
+            {
+                new("Group", SymbolRegular.Tag24, GroupCard),
+                new("Apps", SymbolRegular.Apps24, AppsCard),
+                new("Warnings", SymbolRegular.Alert24, WarningsCard),
+                new("Grace period", SymbolRegular.Timer24, GraceCard),
+                new("Pause", SymbolRegular.PauseCircle24, PauseCard),
+                new("What counts", SymbolRegular.Eye24, CountCard),
+                new("Edit friction", SymbolRegular.LockClosed24, FrictionCard),
+                new("Launch friction", SymbolRegular.PlayCircle24, LaunchCard),
+                new("Schedule", SymbolRegular.CalendarLtr24, ScheduleCard, Tab: 1),
+            },
+            Body,
+            wideChanged: wide =>
+            {
+                // The list takes over from the tabs, so their strip (and the line under it) is hidden too.
+                foreach (var tab in Tabs.Items.OfType<TabItem>())
+                {
+                    tab.Visibility = wide ? Visibility.Collapsed : Visibility.Visible;
+                }
+
+                Tabs.BorderThickness = wide ? new Thickness(0) : _tabsBorder;
+            },
+            shown: section => Tabs.SelectedIndex = section.Tab);
+
         // Esc means "never mind": close without saving.
         PreviewKeyDown += (_, e) =>
         {
@@ -60,8 +90,29 @@ public partial class GroupEditorWindow : FluentWindow
         };
     }
 
+    private readonly SectionSidebar _sidebar;
+    private readonly Thickness _tabsBorder;
+
     /// <summary>Shows the tab at this position (0 is General, 1 is Schedule). Used by the development screenshot mode.</summary>
-    public void SelectTab(int index) => Tabs.SelectedIndex = Math.Clamp(index, 0, Tabs.Items.Count - 1);
+    public void SelectTab(int index)
+    {
+        index = Math.Clamp(index, 0, Tabs.Items.Count - 1);
+        Tabs.SelectedIndex = index;
+        _sidebar.SelectTab(index);
+    }
+
+    /// <summary>Shows one card by its name, such as "Grace period" (in the sidebar layout, and its tab in the narrow one).</summary>
+    public void SelectSection(string title)
+    {
+        _sidebar.Select(title);
+        if (!_sidebar.IsWide)
+        {
+            Tabs.SelectedIndex = _sidebar.Selected.Tab;
+        }
+    }
+
+    /// <summary>True while the window is wide enough to show the section list.</summary>
+    public bool IsSidebarShowing => _sidebar.IsWide;
 
     // ---- Color swatches ----
 

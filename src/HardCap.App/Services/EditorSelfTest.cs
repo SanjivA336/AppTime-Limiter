@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows.Threading;
 using HardCap.App.ViewModels;
+using HardCap.Core.Enforcement;
 using HardCap.Core.Models;
 using HardCap.Core.Usage;
 
@@ -161,7 +162,7 @@ internal static class EditorSelfTest
         lockBoxes.Lock.Minutes = 0;
         lockBoxes.Lock.Seconds = -5;
         Check("the lock can't go below 0:00", lockBoxes.Lock.Minutes == 0 && lockBoxes.Lock.Seconds == 0);
-        Check("0:00 reads as no lock", lockBoxes.Lock.Summary == "No lock");
+        Check("0:00 reads as no wait", lockBoxes.Lock.Summary == "No wait");
 
         lockBoxes.Lock.Minutes = 0;
         lockBoxes.Lock.Seconds = 7;
@@ -199,6 +200,18 @@ internal static class EditorSelfTest
         Check("opening it again starts the whole wait over", again.IsLocked);
         again.StopCountdown();
 
+        // 11b. A paused group ignores its lock, without changing it.
+        real.LockSeconds = 60;
+        real.IsPaused = true;
+        real.PausedUntil = null;
+        var whilePaused = new GroupEditorViewModel(main, card);
+        Check("a paused group opens straight into the editor", whilePaused.IsUnlocked && !whilePaused.IsLocked);
+        Check("pausing does not change the saved lock", real.LockSeconds == 60 && whilePaused.Draft.LockSeconds == 60);
+        real.IsPaused = false;
+        var afterPause = new GroupEditorViewModel(main, card);
+        Check("the lock is back once the group is no longer paused", afterPause.IsLocked);
+        afterPause.StopCountdown();
+
         // 12. Taking the lock off (from inside the editor) and a lock never hiding a new group.
         real.LockSeconds = 0;
         Check("a group whose lock was removed opens straight into the editor", new GroupEditorViewModel(main, card).IsUnlocked);
@@ -216,6 +229,7 @@ internal static class EditorSelfTest
         window.Activate();
         var windowEditor = (GroupEditorViewModel)window.DataContext;
         windowEditor.AddWarningCommand.Execute(null);
+        window.SelectSection("Warnings");
         await FlushDispatcherAsync();
         window.UpdateLayout();
 
@@ -228,6 +242,9 @@ internal static class EditorSelfTest
         await FlushDispatcherAsync();
         Check("moving focus to Save commits the typed warning", windowEditor.Warnings[0].Minutes == 45);
 
+        window.SelectSection("Edit friction");
+        await FlushDispatcherAsync();
+        window.UpdateLayout();
         var lockBox = FindAll<Wpf.Ui.Controls.NumberBox>(window).Last(box => box.Minimum == -300); // the lock card comes after the grace card
         lockBox.Focus();
         lockBox.Text = "45";
@@ -258,7 +275,7 @@ internal static class EditorSelfTest
         Check("moving focus to Save commits a typed daily budget", windowEditor.GetBudgetMinutes(DayOfWeek.Monday) == 45);
 
         // The grace period's boxes, in the real window.
-        window.SelectTab(0);
+        window.SelectSection("Grace period");
         await FlushDispatcherAsync();
         window.UpdateLayout();
         var graceSecondsBox = FindAll<Wpf.Ui.Controls.NumberBox>(window).First(box => box.Minimum == -300);
@@ -268,6 +285,20 @@ internal static class EditorSelfTest
         await FlushDispatcherAsync();
         Check("a typed grace period reaches the draft", windowEditor.Draft.GraceSeconds == 30);
         Check("typing a grace period does not change the lock", windowEditor.Draft.LockSeconds == 165); // 2:45, from the checks above
+
+        // The wide layout (a list of sections) and the narrow one (the tabs and stacked cards the editor always had).
+        Check("a wide editor window shows the section list", window.IsSidebarShowing);
+        window.SelectSection("Pause");
+        await FlushDispatcherAsync();
+        window.UpdateLayout();
+        Check("the list shows one section at a time", window.PauseCard.Visibility == System.Windows.Visibility.Visible && window.GraceCard.Visibility == System.Windows.Visibility.Collapsed);
+        Check("a card that shared a row takes the whole row when shown alone", System.Windows.Controls.Grid.GetColumnSpan(window.PauseCard) == 2 && System.Windows.Controls.Grid.GetColumn(window.PauseCard) == 0);
+        window.Width = 760;
+        await FlushDispatcherAsync();
+        window.UpdateLayout();
+        Check("a narrow editor window goes back to tabs", !window.IsSidebarShowing);
+        Check("every card on the General tab is visible again when narrow", window.GraceCard.Visibility == System.Windows.Visibility.Visible && window.AppsCard.Visibility == System.Windows.Visibility.Visible && window.FrictionCard.Visibility == System.Windows.Visibility.Visible);
+        Check("paired cards are back in their own columns when narrow", System.Windows.Controls.Grid.GetColumn(window.PauseCard) == 1 && System.Windows.Controls.Grid.GetColumnSpan(window.PauseCard) == 1);
         window.Close();
 
         // 14. Pause, in the editor's draft.
@@ -315,21 +346,22 @@ internal static class EditorSelfTest
         Check("it carries on when its window is active again", waiting2.Progress < before && !waiting2.IsPaused);
         waiting2.Stop();
 
-        // 16. The general wait (settings) also locks a group, and open hours switch it off.
+        // 16. A group waits only for its own lock. The general wait (settings) is for the settings page and quitting, so it
+        // does not lock a group, and open hours don't change a group's lock.
         real.LockSeconds = 0;
         main.Settings.WaitSeconds = 20;
         main.Settings.OpenHoursEnabled = false;
         var general = new GroupEditorViewModel(main, card);
-        Check("the general wait makes a group without a lock wait", general.IsLocked && general.Countdown?.TotalSeconds == 20);
-        general.StopCountdown();
+        Check("the general wait does not make a group without a lock wait", general.IsUnlocked);
+
+        real.LockSeconds = 30;
+        var ownLock = new GroupEditorViewModel(main, card);
+        Check("a group's own lock is the only wait for opening it", ownLock.IsLocked && ownLock.Countdown?.TotalSeconds == 30);
+        ownLock.StopCountdown();
 
         main.Settings.OpenHoursEnabled = true;
         main.Settings.OpenHoursStartMinutes = 0;
         main.Settings.OpenHoursEndMinutes = 24 * 60 - 1;
-        var inOpenHours = new GroupEditorViewModel(main, card);
-        Check("during open hours the general wait does not apply", inOpenHours.IsUnlocked);
-
-        real.LockSeconds = 30;
         var lockInOpenHours = new GroupEditorViewModel(main, card);
         Check("a group's own lock still applies during open hours", lockInOpenHours.IsLocked && lockInOpenHours.Countdown?.TotalSeconds == 30);
         lockInOpenHours.StopCountdown();
@@ -352,26 +384,46 @@ internal static class EditorSelfTest
         settingsPage.EndWait();
         main.Settings.WaitSeconds = 0;
 
+        // The Settings page edits a draft: nothing is real until "Save changes", like the group editor.
+        Check("a fresh Settings page has nothing to save", !settingsPage.HasChanges && settingsPage.NoChanges);
+        settingsPage.Save();
+        Check("saving with no changes does nothing", settingsPage.Message is null);
         settingsPage.SelectedReset = TimeChoice.For(4 * 60);
-        Check("choosing a reset time changes the setting", main.Settings.ResetMinutes == 240);
+        Check("choosing a reset time is only a draft", main.Settings.ResetMinutes == 0 && settingsPage.HasChanges && !settingsPage.NoChanges);
         Check("the reset time is explained", settingsPage.ResetSummary.Contains("4:00 AM"));
+        settingsPage.Revert();
+        Check("revert puts the reset time back", settingsPage.SelectedReset.Minutes == 0 && !settingsPage.HasChanges);
+        settingsPage.SelectedReset = TimeChoice.For(4 * 60);
+        settingsPage.Save();
+        Check("saving makes the reset time real", main.Settings.ResetMinutes == 240 && !settingsPage.HasChanges);
+        Check("saving says so", settingsPage.Message == "Saved your settings.");
         Check("the group editor's note shows the reset time", new GroupEditorViewModel(main, card).BudgetNoteText.Contains("4:00 AM"));
 
         // 17b. Away from the computer.
         Check("the idle setting starts off, so the computer isn't asked", !settingsPage.IdleDetectionEnabled && !main.Settings.IdleDetectionEnabled);
         Check("the off setting is explained", settingsPage.IdleSummary.StartsWith("Off"));
         settingsPage.IdleDetectionEnabled = true;
-        Check("turning it on changes the setting", main.Settings.IdleDetectionEnabled);
+        Check("turning it on is a draft until saved", settingsPage.IdleDetectionEnabled && !main.Settings.IdleDetectionEnabled && settingsPage.HasChanges);
         settingsPage.IdleMinutes = 12;
-        Check("a typed number of minutes reaches the setting", main.Settings.IdleMinutes == 12 && settingsPage.IdleSummary.Contains("12 minutes"));
+        Check("a typed number of minutes reaches the draft", settingsPage.IdleMinutes == 12 && settingsPage.IdleSummary.Contains("12 minutes"));
         settingsPage.IdleMinutes = 0;
-        Check("too few minutes is tidied to 1", main.Settings.IdleMinutes == 1 && settingsPage.IdleMinutes == 1 && settingsPage.IdleSummary.Contains("1 minute "));
+        Check("too few minutes is tidied to 1", settingsPage.IdleMinutes == 1 && settingsPage.IdleSummary.Contains("1 minute "));
         settingsPage.IdleMinutes = 500;
-        Check("too many minutes is tidied to the longest", main.Settings.IdleMinutes == AppSettings.MaxIdleMinutes);
+        Check("too many minutes is tidied to the longest", settingsPage.IdleMinutes == AppSettings.MaxIdleMinutes);
         settingsPage.IdleMinutes = double.NaN;
-        Check("clearing the box leaves the setting alone", main.Settings.IdleMinutes == AppSettings.MaxIdleMinutes);
+        Check("clearing the box leaves the setting alone", settingsPage.IdleMinutes == AppSettings.MaxIdleMinutes);
+        Check("nothing away is real before saving", !main.Settings.IdleDetectionEnabled && main.Settings.IdleMinutes == AppSettings.DefaultIdleMinutes);
+        settingsPage.Save();
+        Check("saving makes the away setting real", main.Settings.IdleDetectionEnabled && main.Settings.IdleMinutes == AppSettings.MaxIdleMinutes);
         settingsPage.IdleDetectionEnabled = false;
-        main.Settings.IdleMinutes = AppSettings.DefaultIdleMinutes;
+        settingsPage.IdleMinutes = AppSettings.DefaultIdleMinutes;
+        settingsPage.Save();
+        Check("and it can be switched off again", !main.Settings.IdleDetectionEnabled && main.Settings.IdleMinutes == AppSettings.DefaultIdleMinutes);
+
+        settingsPage.IdleDetectionEnabled = true;
+        Check("unsaved changes turn export and import off", settingsPage.HasChanges && !settingsPage.NoChanges);
+        settingsPage.Revert();
+        Check("revert turns them back on and clears the switch", settingsPage.NoChanges && !settingsPage.IdleDetectionEnabled && settingsPage.Message is null);
 
         var backup = Path.Combine(Path.GetTempPath(), $"hardcap-selftest-{Guid.NewGuid():N}.json");
         try
@@ -479,10 +531,197 @@ internal static class EditorSelfTest
         Check("the quit window has not quit by itself", !exitWindow.QuitConfirmed);
         exitWindow.Close();
 
+
+        // 19. Launch friction: the editor card, then the real thing end to end with a real (throwaway) process.
+        real.LaunchFrictionSeconds = 0;
+        var friction = new GroupEditorViewModel(main, card);
+        Check("launch friction starts off", friction.LaunchFrictionSeconds == 0 && friction.LaunchFrictionSummary.StartsWith("Off"));
+        friction.LaunchFrictionSeconds = 20;
+        Check("a typed wait reaches the draft, and is not real until saved", friction.Draft.LaunchFrictionSeconds == 20 && real.LaunchFrictionSeconds == 0);
+        friction.LaunchFrictionSeconds = 22;
+        Check("launch friction snaps to steps of 5", friction.Draft.LaunchFrictionSeconds == 20 && friction.LaunchFrictionSeconds == 20);
+        friction.LaunchFrictionSeconds = 500;
+        Check("too long is tidied to a minute", friction.Draft.LaunchFrictionSeconds == 60);
+        friction.LaunchFrictionSeconds = 10;
+        friction.Save();
+        Check("saving makes launch friction real", real.LaunchFrictionSeconds == 10);
+        real.LaunchFrictionSeconds = 0;
+
+        await RunLaunchFrictionEndToEnd(Check);
+
         report.Add(string.Empty);
         report.Add(failures == 0 ? "ALL CHECKS PASSED" : $"{failures} CHECK(S) FAILED");
         File.WriteAllLines(reportPath, report);
         return failures == 0;
+    }
+
+    /// <summary>A "notifier" that just remembers what it was asked to show.</summary>
+    private sealed class RememberingNotifier : HardCap.Core.Enforcement.INotifier
+    {
+        public List<string> Messages { get; } = new();
+
+        public void Notify(string title, string message) => Messages.Add(message);
+    }
+
+    /// <summary>
+    /// Runs launch friction against a real throwaway process (a renamed copy of ping.exe, so nothing the person runs can be
+    /// touched): it must be frozen when it starts, carry on when the countdown runs out, and be closed, not relaunched, when the
+    /// countdown window is closed.
+    /// </summary>
+    private static async Task RunLaunchFrictionEndToEnd(Action<string, bool> check)
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "hardcap-lf-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(folder);
+        var name = "atl-gate-" + Guid.NewGuid().ToString("N")[..8];
+        var exe = Path.Combine(folder, name + ".exe");
+        File.Copy(Path.Combine(Environment.SystemDirectory, "ping.exe"), exe);
+
+        var group = new AppGroup { Name = "Gate test", Processes = { name }, LaunchFrictionSeconds = 5 };
+        foreach (var day in Enum.GetValues<DayOfWeek>())
+        {
+            for (var cell = 0; cell < 48; cell++)
+            {
+                group.Schedule.SetState(day, cell, CellState.Free);
+            }
+        }
+
+        var settings = new AppSettings { Groups = { group } };
+        var processes = new HardCap.Core.Processes.WindowsProcessController();
+        var notifier = new RememberingNotifier();
+        var runner = new HardCap.Core.Enforcement.EnforcementRunner(() => settings, processes, notifier, new UsageLedger());
+
+        Views.LaunchGateWindow? gate = null;
+        var holdsStarted = 0;
+        runner.HoldStarted += request =>
+        {
+            holdsStarted++;
+            gate = new Views.LaunchGateWindow(request);
+            gate.Completed += id => runner.CompleteHold(id);
+            gate.Cancelled += id => _ = runner.CancelHoldAsync(id);
+            gate.Show();
+        };
+
+        static bool IsFrozen(string processName)
+        {
+            var found = System.Diagnostics.Process.GetProcessesByName(processName);
+            try
+            {
+                return found.Length > 0 && found.All(p => p.Threads.Cast<System.Diagnostics.ProcessThread>().All(t =>
+                    t.ThreadState == System.Diagnostics.ThreadState.Wait && t.WaitReason == System.Diagnostics.ThreadWaitReason.Suspended));
+            }
+            finally
+            {
+                foreach (var p in found)
+                {
+                    p.Dispose();
+                }
+            }
+        }
+
+        async Task<bool> WaitFor(Func<bool> condition, int milliseconds)
+        {
+            for (var waited = 0; waited < milliseconds; waited += 100)
+            {
+                if (condition())
+                {
+                    return true;
+                }
+
+                await Task.Delay(100);
+            }
+
+            return condition();
+        }
+
+        System.Diagnostics.Process Start() => System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(exe, "-n 120 127.0.0.1") { CreateNoWindow = true, UseShellExecute = false })!;
+
+        System.Diagnostics.Process? running = null;
+        try
+        {
+            var now = DateTime.Now;
+            await runner.RunOnceAsync(now);                            // HardCap looks first: nothing is running
+            running = Start();
+            check("the throwaway app starts", await WaitFor(() => processes.GetRunningProcessNames().Contains(name), 5000));
+
+            await runner.RunOnceAsync(now.AddSeconds(1));             // and sees it start
+            check("a newly started app is held: the countdown opens", holdsStarted == 1 && gate is not null);
+            check("a newly started app is really frozen", await WaitFor(() => IsFrozen(name), 3000));
+            check("a held app is not closed", !running.HasExited);
+
+            // The countdown only runs while its window is in front. (The window is told it isn't, so the check doesn't depend on
+            // which window the computer happens to have focused.)
+            await FlushDispatcherAsync();
+            gate!.Countdown.SetWindowActive(false);
+            var progressBefore = gate.Countdown.Progress;
+            await Task.Delay(2500);
+            check("the countdown stands still while its window is not in front", Math.Abs(gate.Countdown.Progress - progressBefore) < 0.001 && !gate.IsReady);
+            check("the app stays frozen meanwhile", IsFrozen(name));
+
+            // Back in front: it runs, and when it reaches zero the choice appears. The app is still frozen until the person chooses.
+            var ready = false;
+            for (var waited = 0; waited < 9000 && !ready; waited += 100)
+            {
+                gate.Countdown.SetWindowActive(true);
+                ready = gate.IsReady;
+                if (!ready)
+                {
+                    await Task.Delay(100);
+                }
+            }
+
+            check("the countdown runs when its window is in front and then offers the choice", ready);
+            check("the app stays frozen until the choice is made", IsFrozen(name));
+
+            gate.ChooseOpen();                                          // "Open it"
+            check("choosing to open unfreezes the app", await WaitFor(() => !IsFrozen(name), 3000));
+            check("the countdown window goes away when the choice is made", await WaitFor(() => gate is { IsVisible: false }, 2000));
+            check("the app is still running after it was opened", !running.HasExited);
+
+            // Close the countdown window instead: "don't open it".
+            running.Kill();
+            await running.WaitForExitAsync();
+            await runner.RunOnceAsync(now.AddSeconds(20));            // sees it gone
+            running = Start();
+            await WaitFor(() => processes.GetRunningProcessNames().Contains(name), 5000);
+            await runner.RunOnceAsync(now.AddSeconds(21));            // sees it start again
+            check("opening it again is held again", holdsStarted == 2 && await WaitFor(() => IsFrozen(name), 3000));
+
+            gate!.Close();                                            // the person chooses not to open it
+            check("closing the countdown closes the app, not relaunches it", await WaitFor(() => running.HasExited, 6000));
+            await Task.Delay(300);
+            await runner.RunOnceAsync(now.AddSeconds(25));
+            await runner.RunOnceAsync(now.AddSeconds(26));
+            check("nothing is held or started again after that", holdsStarted == 2
+                && System.Diagnostics.Process.GetProcessesByName(name).Length == 0);
+            check("nothing is left frozen", !IsFrozen(name));
+        }
+        finally
+        {
+            runner.ReleaseAllHolds();
+            gate?.CloseQuietly();
+            foreach (var leftover in System.Diagnostics.Process.GetProcessesByName(name))
+            {
+                try
+                {
+                    leftover.Kill();
+                }
+                finally
+                {
+                    leftover.Dispose();
+                }
+            }
+
+            try
+            {
+                await Task.Delay(300);
+                Directory.Delete(folder, recursive: true);
+            }
+            catch (IOException)
+            {
+                // the exe can stay locked for a moment after it exits; temp files are harmless
+            }
+        }
     }
 
     /// <summary>Every element of the given type anywhere inside <paramref name="root"/>, in the order they appear.</summary>

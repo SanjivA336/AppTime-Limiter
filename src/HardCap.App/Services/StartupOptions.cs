@@ -17,7 +17,9 @@ public sealed record StartupOptions(
     bool ScreenshotAnalytics,
     string? AnalyticsHover,
     string? AnalyticsView,
-    int AnalyticsBack)
+    int AnalyticsBack,
+    bool ScreenshotGate = false,
+    string? EditorSection = null)
 {
     public const string BackgroundFlag = "--background";
     private const string DataFlag = "--data-dir";
@@ -35,6 +37,8 @@ public sealed record StartupOptions(
     private const string AnalyticsHoverFlag = "--analytics-hover";
     private const string AnalyticsViewFlag = "--analytics-view";
     private const string AnalyticsBackFlag = "--analytics-back";
+    private const string GateFlag = "--gate";
+    private const string EditorSectionFlag = "--editor-section";
 
     public static StartupOptions Parse(string[] args)
     {
@@ -54,7 +58,9 @@ public sealed record StartupOptions(
             ScreenshotAnalytics: Has(args, AnalyticsFlag),
             AnalyticsHover: ValueOf(args, AnalyticsHoverFlag), // "day,group", e.g. "2,0"
             AnalyticsView: ValueOf(args, AnalyticsViewFlag),                 // "day", "week" or "month"
-            AnalyticsBack: int.TryParse(ValueOf(args, AnalyticsBackFlag), out var back) ? back : 0); // periods back from now
+            AnalyticsBack: int.TryParse(ValueOf(args, AnalyticsBackFlag), out var back) ? back : 0, // periods back from now
+            ScreenshotGate: Has(args, GateFlag), // --gate: the launch friction countdown
+            EditorSection: ValueOf(args, EditorSectionFlag)); // --editor-section "Launch friction": which card the editor shows
     }
 
     private static bool Has(string[] args, string flag) => args.Contains(flag, StringComparer.OrdinalIgnoreCase);

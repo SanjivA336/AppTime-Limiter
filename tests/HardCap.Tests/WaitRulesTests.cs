@@ -76,31 +76,35 @@ public class WaitRulesTests
         var group = T.Group("Games", new[] { "game" }, CellState.Free);
 
         Assert.Equal(0, WaitRules.SettingsWaitSeconds(settings, T.At(12)));
-        Assert.Equal(0, WaitRules.GroupWaitSeconds(settings, group, T.At(12)));
+        Assert.Equal(0, WaitRules.GroupWaitSeconds(group, T.At(12)));
         Assert.Equal(0, WaitRules.ExitWaitSeconds(settings, T.At(12)));
     }
 
-    // ---- Opening a group: the longer of the lock and the general wait ----
+    // ---- Opening a group: only the group's own lock ----
 
     [Fact]
-    public void A_group_waits_for_the_longer_of_its_lock_and_the_general_wait_never_both_added()
+    public void A_group_waits_only_for_its_own_lock_whatever_the_general_wait_is()
     {
-        var settings = WithOpenHours(8, 9, waitSeconds: 180);
-        var group = T.Group("Games", new[] { "game" }, CellState.Free);
-        group.LockSeconds = 60;
+        var group = LockedGroup(60);
 
-        Assert.Equal(180, WaitRules.GroupWaitSeconds(settings, group, T.At(15)));  // 3 minutes, not 4
-        Assert.Equal(60, WaitRules.GroupWaitSeconds(settings, group, T.At(8, 30))); // the lock still applies in open hours
+        Assert.Equal(60, WaitRules.GroupWaitSeconds(group, T.At(15)));   // the general wait (3 minutes outside open hours) has no say
+        Assert.Equal(60, WaitRules.GroupWaitSeconds(group, T.At(8, 30))); // and open hours don't change a lock either
     }
 
     [Fact]
-    public void A_long_lock_beats_a_short_general_wait()
+    public void A_group_with_no_lock_does_not_wait_even_when_a_general_wait_is_set()
     {
-        var settings = new AppSettings { WaitSeconds = 30 };
-        var group = T.Group("Games", new[] { "game" }, CellState.Free);
-        group.LockSeconds = 120;
+        var settings = new AppSettings { WaitSeconds = 180 };
+        var group = LockedGroup(0);
 
-        Assert.Equal(120, WaitRules.GroupWaitSeconds(settings, group, T.At(15)));
+        Assert.Equal(0, WaitRules.GroupWaitSeconds(group, T.At(15)));
+        Assert.Equal(180, WaitRules.SettingsWaitSeconds(settings, T.At(15))); // the general wait is for the settings page
+    }
+
+    [Fact]
+    public void A_long_lock_is_used_as_it_is()
+    {
+        Assert.Equal(300, WaitRules.GroupWaitSeconds(LockedGroup(300), T.At(15)));
     }
 
     // ---- Quitting ----
@@ -128,5 +132,89 @@ public class WaitRulesTests
 
         Assert.Equal(200, WaitRules.ExitWaitSeconds(settings, T.At(15)));
         Assert.Equal(30, WaitRules.ExitWaitSeconds(settings, T.At(8, 15)));
+    }
+
+    // ---- A paused group ignores its lock ----
+
+    private static AppGroup LockedGroup(int lockSeconds)
+    {
+        var group = T.Group("Games", new[] { "game" }, CellState.Free);
+        group.LockSeconds = lockSeconds;
+        return group;
+    }
+
+    [Fact]
+    public void A_group_waits_for_its_lock_when_it_is_not_paused()
+    {
+        var group = LockedGroup(120);
+
+        Assert.Equal(120, WaitRules.GroupWaitSeconds(group, T.At(12)));
+    }
+
+    [Fact]
+    public void A_paused_group_ignores_its_lock()
+    {
+        var group = LockedGroup(120);
+        group.IsPaused = true;
+
+        Assert.Equal(0, WaitRules.GroupWaitSeconds(group, T.At(12)));
+    }
+
+    [Fact]
+    public void Ignoring_the_lock_does_not_change_the_saved_lock()
+    {
+        var group = LockedGroup(120);
+        group.IsPaused = true;
+
+        WaitRules.GroupWaitSeconds(group, T.At(12));
+
+        Assert.Equal(120, group.LockSeconds);
+        Assert.Equal(0, group.LockSecondsAt(T.At(12)));
+    }
+
+    [Fact]
+    public void The_lock_comes_back_by_itself_when_a_timed_pause_ends()
+    {
+        var group = LockedGroup(120);
+        group.IsPaused = true;
+        group.PausedUntil = T.At(13);
+
+        Assert.Equal(0, WaitRules.GroupWaitSeconds(group, T.At(12, 59, 59)));
+        Assert.Equal(120, WaitRules.GroupWaitSeconds(group, T.At(13)));
+    }
+
+    [Fact]
+    public void A_paused_group_waits_for_nothing_but_the_settings_and_quitting_still_use_the_general_wait()
+    {
+        var group = LockedGroup(120);
+        group.IsPaused = true;
+        var settings = new AppSettings { WaitSeconds = 45, Groups = { group } };
+
+        Assert.Equal(0, WaitRules.GroupWaitSeconds(group, T.At(12)));
+        Assert.Equal(45, WaitRules.SettingsWaitSeconds(settings, T.At(12)));
+        Assert.Equal(45, WaitRules.ExitWaitSeconds(settings, T.At(12)));
+    }
+
+    [Fact]
+    public void Quitting_ignores_the_locks_of_paused_groups_but_not_the_others()
+    {
+        var paused = LockedGroup(240);
+        paused.IsPaused = true;
+        var active = LockedGroup(90);
+        var settings = new AppSettings { Groups = { paused, active } };
+
+        Assert.Equal(90, WaitRules.ExitWaitSeconds(settings, T.At(12)));
+    }
+
+    [Fact]
+    public void Quitting_with_every_group_paused_waits_only_the_general_wait()
+    {
+        var one = LockedGroup(240);
+        one.IsPaused = true;
+        var two = LockedGroup(60);
+        two.IsPaused = true;
+        var settings = new AppSettings { WaitSeconds = 30, Groups = { one, two } };
+
+        Assert.Equal(30, WaitRules.ExitWaitSeconds(settings, T.At(12)));
     }
 }

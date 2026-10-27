@@ -4,7 +4,7 @@
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:controls="clr-namespace:HardCap.App.Controls"
                  Title="Edit group"
-                 Width="780" Height="900" MinWidth="720" MinHeight="560"
+                 Width="1020" Height="900" MinWidth="720" MinHeight="560"
                  WindowBackdropType="Mica"
                  ExtendsContentIntoTitleBar="True"
                  WindowStartupLocation="CenterOwner"
@@ -27,20 +27,30 @@
         <StackPanel Grid.Row="1" Grid.RowSpan="3" VerticalAlignment="Center" HorizontalAlignment="Center"
                     Visibility="{Binding IsLocked, Converter={StaticResource BoolToVisibility}}">
             <controls:WaitCountdownView DataContext="{Binding Countdown}"
-                                        Title="This group is locked"
-                                        Subtitle="You can change it when the timer reaches zero, and it only runs while this window is in front." />
+                                        Title="Waiting to open this group"
+                                        Subtitle="You can open it when the countdown reaches zero, and it only runs while this window is in front." />
             <ui:Button Content="Cancel" HorizontalAlignment="Center" Margin="0,36,0,0" MinWidth="120" Click="CancelLock_Click" />
         </StackPanel>
 
         <!-- Problems with what was just typed or picked (a name already used, an app in another group...). -->
-        <ui:InfoBar Grid.Row="1" Severity="Warning" IsClosable="True" Title="Heads up"
+        <ui:InfoBar Grid.Row="1" Severity="Warning" IsClosable="True" Title="Notice"
                     Message="{Binding Message}"
                     IsOpen="{Binding IsNoticeOpen, Mode=TwoWay}"
                     Margin="24,4,24,4" />
 
         <!-- Closing this window without pressing "Save changes" throws every change away. -->
-        <TabControl x:Name="Tabs" Grid.Row="2" Margin="24,0,24,0"
-                    Visibility="{Binding IsUnlocked, Converter={StaticResource BoolToVisibility}}">
+        <!--
+            When the window is wide enough, a list of sections appears on the left and the tabs are hidden (the list takes over),
+            showing one section at a time; when it is narrow, the tabs and stacked cards below work as they always did.
+        -->
+        <Grid x:Name="Body" Grid.Row="2" Margin="24,0,24,0"
+              Visibility="{Binding IsUnlocked, Converter={StaticResource BoolToVisibility}}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <ListBox x:Name="Sidebar" Grid.Column="0" Style="{StaticResource SectionSidebarList}" />
+        <TabControl x:Name="Tabs" Grid.Column="1">
 
             <!-- ============================ General ============================ -->
             <TabItem Header="General">
@@ -48,7 +58,7 @@
                     <StackPanel Margin="0,14,12,8">
 
                         <!-- Name and color -->
-                        <Border Style="{StaticResource Card}">
+                        <Border x:Name="GroupCard" Style="{StaticResource Card}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SectionTitle}" Text="Group" />
                                 <ui:TextBox Text="{Binding Name, UpdateSourceTrigger=LostFocus}" PlaceholderText="Group name"
@@ -64,7 +74,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,6,12">
+                            <Border x:Name="AppsCard" Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,6,12">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Apps" />
                                     <TextBlock Style="{StaticResource Hint}"
@@ -91,7 +101,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border Grid.Column="1" Style="{StaticResource Card}" Margin="6,0,0,12">
+                            <Border x:Name="WarningsCard" Grid.Column="1" Style="{StaticResource Card}" Margin="6,0,0,12">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Warnings" />
                                     <TextBlock Style="{StaticResource Hint}"
@@ -127,7 +137,7 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- Grace period: time to save when a limit starts while an app is running -->
-                            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,6,12">
+                            <Border x:Name="GraceCard" Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,6,12">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Grace period" />
                                     <TextBlock Style="{StaticResource Hint}"
@@ -155,7 +165,7 @@
                             </Border>
 
                             <!-- Pause: treat the group as Free for a while -->
-                            <Border Grid.Column="1" Style="{StaticResource Card}" Margin="6,0,0,12">
+                            <Border x:Name="PauseCard" Grid.Column="1" Style="{StaticResource Card}" Margin="6,0,0,12">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource SectionTitle}" Text="Pause" />
                                     <TextBlock Style="{StaticResource Hint}"
@@ -176,24 +186,24 @@
                         </Grid>
 
                         <!-- Count time: what uses up the budget -->
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                        <Border x:Name="CountCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource SectionTitle}" Text="Count time" />
+                                <TextBlock Style="{StaticResource SectionTitle}" Text="What counts" />
                                 <TextBlock Style="{StaticResource Hint}"
                                            Text="Choose what uses up this group's budget; both are always recorded, and closing apps never depends on it." />
-                                <RadioButton GroupName="CountMode" Content="Whenever it's running"
+                                <RadioButton GroupName="CountMode" Content="Any time it's running"
                                              IsChecked="{Binding CountsWhileRunning, Mode=TwoWay}" />
-                                <RadioButton GroupName="CountMode" Content="Only while it's in front (time in the background doesn't count)"
+                                <RadioButton GroupName="CountMode" Content="Only when it's in front (time in the background doesn't count)"
                                              IsChecked="{Binding CountsWhileInFront, Mode=TwoWay}" />
                             </StackPanel>
                         </Border>
 
                         <!-- The lock: how long to wait the next time this group is opened -->
-                        <Border Style="{StaticResource Card}">
+                        <Border x:Name="FrictionCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource SectionTitle}" Text="Lock" />
+                                <TextBlock Style="{StaticResource SectionTitle}" Text="Edit friction" />
                                 <TextBlock Style="{StaticResource Hint}"
-                                           Text="Make yourself wait before this group can be opened or changed, up to 5 minutes (0 means no lock); the longer of this and the general wait applies, and the countdown only runs while the window is in front." />
+                                           Text="A wait before this group can be opened or changed, up to 5 minutes (0 means none, and a paused group ignores it); the countdown only runs while the window is in front." />
                                 <StackPanel Orientation="Horizontal">
                                     <!-- The ranges are wider than what is allowed on purpose: stepping past 59 or below 0
                                          has to reach the code, which carries it into the minutes and tidies the result. -->
@@ -212,6 +222,24 @@
                                 </StackPanel>
                             </StackPanel>
                         </Border>
+
+                        <!-- Launch friction: a newly started app of this group is frozen behind a countdown -->
+                        <Border x:Name="LaunchCard" Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SectionTitle}" Text="Launch friction" />
+                                <TextBlock Style="{StaticResource Hint}"
+                                           Text="When one of this group's apps starts, freeze it behind a countdown of up to 60 seconds (0 means off); Cancel closes it, a paused group skips it, and an app that can't be frozen is left alone." />
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:NumberBox Value="{Binding LaunchFrictionSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  Minimum="0" Maximum="60" SmallChange="5" LargeChange="15"
+                                                  MaxDecimalPlaces="0" Width="150" ClearButtonEnabled="False" />
+                                    <TextBlock Text="sec" VerticalAlignment="Center" Margin="8,0,18,0"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="{Binding LaunchFrictionSummary}" VerticalAlignment="Center" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -220,7 +248,7 @@
             <TabItem Header="Schedule">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,14,12,8">
-                        <Border Style="{StaticResource Card}">
+                        <Border x:Name="ScheduleCard" Style="{StaticResource Card}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource SectionTitle}" Text="Weekly schedule" />
                                 <TextBlock Style="{StaticResource Hint}"
@@ -337,6 +365,7 @@
 
             <!-- A future "Analytics" tab for this group's usage goes here. -->
         </TabControl>
+        </Grid>
 
         <!-- Footer: always visible. Changes only count once "Save changes" is pressed. -->
         <Grid Grid.Row="3" Margin="24,12,24,20"

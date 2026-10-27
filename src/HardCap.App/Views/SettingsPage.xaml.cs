@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using HardCap.App.ViewModels;
 using Microsoft.Win32;
+using SymbolRegular = Wpf.Ui.Controls.SymbolRegular;
 
 namespace HardCap.App.Views;
 
@@ -31,7 +32,36 @@ public partial class SettingsPage : Page
 
         // Leaving the page (or closing the window) ends the wait; coming back starts it again from the full length.
         Unloaded += (_, _) => _viewModel.EndWait();
+
+        // When the page is wide, the cards are listed in a sidebar and one is shown at a time.
+        _sidebar = new SectionSidebar(
+            Sidebar,
+            new SectionItem[]
+            {
+                new("General", SymbolRegular.Settings24, GeneralCard),
+                new("Daily reset", SymbolRegular.Clock24, ResetCard),
+                new("Global friction", SymbolRegular.LockClosed24, FrictionCard),
+                new("Away", SymbolRegular.Hourglass24, AwayCard),
+                new("Back up", SymbolRegular.ArrowUpload24, BackupCard),
+            },
+            Body);
     }
+
+    private readonly SectionSidebar _sidebar;
+
+    /// <summary>Shows one card by its name, such as "Global friction" (only matters in the sidebar layout).</summary>
+    public void SelectSection(string title) => _sidebar.Select(title);
+
+    /// <summary>True while the page is wide enough to show the section list.</summary>
+    public bool IsSidebarShowing => _sidebar.IsWide;
+
+    private void Save_Click(object sender, RoutedEventArgs e)
+    {
+        SaveButton.Focus(); // a box that is still being typed in commits its value first
+        _viewModel.Save();
+    }
+
+    private void Revert_Click(object sender, RoutedEventArgs e) => _viewModel.Revert();
 
     private void Cancel_Click(object sender, RoutedEventArgs e)
     {
