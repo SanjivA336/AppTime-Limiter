@@ -145,6 +145,8 @@ The decisions about what to close and when to warn live in `EnforcementEngine` a
 
 ## Patch notes
 
+**v1.3.3**: The installer now force-quits a running Curfew instead of asking it to close, so a wait set in the app (Global friction) no longer makes the installer wait too.
+
 **v1.3.2**: Fixed a glitch where the few seconds around midnight (or the daily reset) were filed under the new day's last hour, so a day could show use in an hour that hadn't happened yet. The version now shows next to the name in the title bar, and the Launch friction card warns that freezing an app may break things (especially games with anti-cheat).
 
 **v1.3.1**: Analytics shows exactly what was recorded again. Apps and groups running at the same time each count, so an hour can add up to more than an hour (the Day view says so when it happens), and an app's hover card shows its own time instead of a share of its group's.

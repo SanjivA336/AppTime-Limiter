@@ -33,8 +33,9 @@ OutputBaseFilename=Curfew-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-; Closes a running Curfew (it lives in the tray) before replacing its files, then offers to start it again.
-CloseApplications=yes
+; Setup stops a running Curfew itself (see PrepareToInstall below) instead of asking it to close. Asking would make it show its
+; quit countdown, so a global friction wait would also stall the installer.
+CloseApplications=no
 RestartApplications=no
 LicenseFile=..\LICENSE
 
@@ -71,13 +72,15 @@ Filename: "{app}\Curfew.exe"; Description: "Start Curfew"; Flags: nowait postins
 Filename: "{sys}\taskkill.exe"; Parameters: "/im Curfew.exe /f"; Flags: runhidden skipifdoesntexist; RunOnceId: "StopCurfew"
 
 [Code]
-// A copy still running under the old name (HardCap.exe) is not caught by "CloseApplications", because the new program has a
-// different file name and Setup never needs to overwrite the old one. Left running, it would count usage next to the new
-// program, so stop it before anything is installed.
+// Stops any running copy before anything is installed, by force (no countdown, no questions), so a wait set in the app can't
+// hold the installer up. That covers the current name (Curfew.exe) and the old one (HardCap.exe): an old copy would otherwise
+// keep running next to the new program, and the two would each count usage. Usage is saved to disk every 15 seconds, so at most
+// that much tracked time can be lost. Nothing happens here until the person has clicked Install.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
 begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/im Curfew.exe /f', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/im HardCap.exe /f', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := '';
 end;
