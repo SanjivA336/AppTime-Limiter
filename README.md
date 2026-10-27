@@ -145,6 +145,10 @@ The decisions about what to close and when to warn live in `EnforcementEngine` a
 
 ## Patch notes
 
+**v1.3.1**: Analytics shows exactly what was recorded again. Apps and groups running at the same time each count, so an hour can add up to more than an hour (the Day view says so when it happens), and an app's hover card shows its own time instead of a share of its group's.
+
+**v1.3.0**: HardCap is now Curfew, with a new logo; installing over HardCap upgrades it and keeps your settings. Launch friction (a wait before a new app opens), a sidebar layout for the group editor and Settings, Save and Revert on the Settings page, and clearer names (Edit friction, Global friction, Frictionless hours).
+
 **v1.2.0**: Optional away detection in Settings (no counting after a set time without keyboard or mouse input). A group's card only animates while its budget is really draining. Analytics no longer shows more than 60 minutes in an hour or 24 hours in a day when groups or apps overlap.
 
 **v1.1.0**: Each group can count its budget only while one of its apps is in front (both amounts are recorded). Adds an installer.

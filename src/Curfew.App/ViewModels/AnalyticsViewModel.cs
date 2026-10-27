@@ -533,6 +533,10 @@ public sealed partial class AnalyticsViewModel : ObservableObject
                 {
                     ChartNote = "Hour-by-hour detail is only recorded from now on; earlier days just have totals.";
                 }
+                else if (report.Hours.Any(h => h.TotalSeconds > 3600.001))
+                {
+                    ChartNote = "Apps running at the same time each count, so an hour can add up to more than an hour of usage.";
+                }
 
                 break;
 

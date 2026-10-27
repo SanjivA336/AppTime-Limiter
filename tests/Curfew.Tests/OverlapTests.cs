@@ -6,8 +6,8 @@ namespace Curfew.Tests;
 
 /// <summary>
 /// Apps and groups that run at the same time must not make time run faster: a group's budget drains once per second however
-/// many of its apps are open, the card only animates while the budget is really going down, and the Analytics page never
-/// shows more than 60 minutes in an hour or more than 24 hours in a day.
+/// many of its apps are open, and the card only animates while the budget is really going down. The Analytics page, on the other
+/// hand, shows exactly what was recorded: groups and apps running together each count, so an hour can show more than 60 minutes.
 /// </summary>
 public class OverlapTests
 {
@@ -129,7 +129,7 @@ public class OverlapTests
         Assert.True(Draining(Tick(settings, new[] { "game" }, "game"), group.Id));
     }
 
-    // ---- Analytics: no hour over 60 minutes, no day over 24 hours ----
+    // ---- Analytics: shown as recorded, so overlapping time adds up ----
 
     private readonly AppGroup _games = T.Group("Games", new[] { "game", "launcher" }, CellState.Free);
     private readonly AppGroup _work = T.Group("Work", new[] { "editor" }, CellState.Free);
@@ -141,16 +141,16 @@ public class OverlapTests
         _ledger.Add(Day, group.Id, seconds, false, apps, endedAt: new DateTime(2026, 10, 26, hour, 0, 0).AddSeconds(seconds));
 
     [Fact]
-    public void Two_groups_in_the_same_hour_are_shown_as_no_more_than_that_hour()
+    public void Two_groups_in_the_same_hour_add_up_to_more_than_an_hour()
     {
         FillHour(_games, 20, 3000, "game");   // 50 minutes
         FillHour(_work, 20, 3000, "editor");  // another 50 minutes at the same time
 
         var hour = DayReport().Hours[20];
 
-        Assert.Equal(3600, hour.TotalSeconds, 3);
-        Assert.Equal(1800, hour.Groups.Single(g => g.Name == "Games").Seconds, 3);   // 3000 * 3600/6000
-        Assert.Equal(1800, hour.Groups.Single(g => g.Name == "Work").Seconds, 3);
+        Assert.Equal(6000, hour.TotalSeconds, 3);
+        Assert.Equal(3000, hour.Groups.Single(g => g.Name == "Games").Seconds, 3);
+        Assert.Equal(3000, hour.Groups.Single(g => g.Name == "Work").Seconds, 3);
     }
 
     [Fact]
@@ -175,7 +175,7 @@ public class OverlapTests
     }
 
     [Fact]
-    public void A_day_never_passes_24_hours_even_when_groups_ran_together_all_day()
+    public void A_day_can_pass_24_hours_when_groups_ran_together_all_day()
     {
         for (var hour = 0; hour < 24; hour++)
         {
@@ -185,21 +185,23 @@ public class OverlapTests
 
         var report = DayReport();
 
-        Assert.Equal(24 * 3600, report.TotalSeconds, 3);
-        Assert.All(report.Hours, h => Assert.True(h.TotalSeconds <= 3600.001));
-        Assert.Equal(24 * 3600, report.Days.Single().TotalSeconds, 3);
+        Assert.Equal(48 * 3600, report.TotalSeconds, 3);
+        Assert.All(report.Hours, h => Assert.Equal(7200, h.TotalSeconds, 3));
+        Assert.Equal(48 * 3600, report.Days.Single().TotalSeconds, 3);
     }
 
     [Fact]
-    public void Apps_in_a_group_never_add_up_to_more_than_the_group()
+    public void Each_app_shows_its_own_recorded_time_even_when_apps_ran_together()
     {
         _ledger.Add(Day, _games.Id, 3600, false, BothApps, endedAt: new DateTime(2026, 10, 26, 21, 0, 0)); // two apps, one hour
 
-        var games = DayReport().Groups.Single(g => g.Name == "Games");
+        var report = DayReport();
+        var games = report.Groups.Single(g => g.Name == "Games");
+        var hour = report.Hours[20].Groups.Single(g => g.Name == "Games");
 
-        Assert.Equal(3600, games.Seconds, 3);
-        Assert.Equal(3600, games.Apps.Sum(a => a.Seconds), 3);
-        Assert.All(games.Apps, a => Assert.Equal(1800, a.Seconds, 3));
+        Assert.Equal(3600, games.Seconds, 3);                      // the group's time is counted once
+        Assert.All(games.Apps, a => Assert.Equal(3600, a.Seconds, 3));   // each app shows the whole hour it ran
+        Assert.All(hour.Apps, a => Assert.Equal(3600, a.Seconds, 3));
     }
 
     [Fact]
@@ -212,7 +214,7 @@ public class OverlapTests
     }
 
     [Fact]
-    public void Only_the_part_of_a_day_with_hourly_detail_is_scaled()
+    public void Time_with_and_without_hourly_detail_is_added_as_recorded()
     {
         _ledger.Add(Day, _games.Id, 3600, false);                       // an hour recorded without hourly detail
         FillHour(_games, 20, 3000, "game");
@@ -220,6 +222,6 @@ public class OverlapTests
 
         var games = DayReport().Groups.Single(g => g.Name == "Games");
 
-        Assert.Equal(3600 + 1800, games.Seconds, 3);   // the plain hour stays whole; the overlapping hour is halved
+        Assert.Equal(3600 + 3000, games.Seconds, 3);
     }
 }

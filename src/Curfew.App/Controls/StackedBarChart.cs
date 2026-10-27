@@ -29,7 +29,7 @@ public sealed class StackedBarChart : FrameworkElement
     // are for hours, which never pass one hour; the larger ones are for days.
     private static readonly (double AxisHours, double StepHours)[] Axes =
     {
-        (0.25, 1.0 / 12), (0.5, 0.25), (1, 0.5), (2, 0.5), (4, 1), (6, 2), (8, 2), (12, 4), (16, 4), (24, 6),
+        (0.25, 1.0 / 12), (0.5, 0.25), (1, 0.5), (2, 0.5), (4, 1), (6, 2), (8, 2), (12, 4), (16, 4), (24, 6), (48, 12), (96, 24),
     };
 
     public static readonly DependencyProperty ColumnsProperty = DependencyProperty.Register(

@@ -133,9 +133,8 @@ public class UsageAnalyticsTests
         var apps = Report().Groups.Single(g => g.Name == "Games").Apps;
 
         Assert.Equal(new[] { "game", "launcher" }, apps.Select(a => a.Name));
-        Assert.Equal(3240, apps[0].Seconds, 3);   // the apps share the group's 5400 seconds (9000 recorded, scaled to 5400)
-        Assert.Equal(2160, apps[1].Seconds, 3);
-        Assert.Equal(5400, apps.Sum(a => a.Seconds), 3);
+        Assert.Equal(5400, apps[0].Seconds, 3);   // each app shows the time it really ran (the group itself counts 5400 once)
+        Assert.Equal(3600, apps[1].Seconds, 3);
     }
 
     [Fact]
