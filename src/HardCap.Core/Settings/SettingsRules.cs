@@ -70,6 +70,7 @@ public static class SettingsRules
         }
 
         settings.WaitSeconds = Math.Clamp(settings.WaitSeconds, 0, AppSettings.MaxWaitSeconds);
+        settings.IdleMinutes = Math.Clamp(settings.IdleMinutes, 1, AppSettings.MaxIdleMinutes);
 
         const int lastMinuteOfDay = 24 * 60 - 1;
         settings.OpenHoursStartMinutes = Math.Clamp(settings.OpenHoursStartMinutes, 0, lastMinuteOfDay);

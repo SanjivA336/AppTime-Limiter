@@ -21,3 +21,10 @@ public interface INotifier
 {
     void Notify(string title, string message);
 }
+
+/// <summary>Says how long it has been since the person last used the keyboard or mouse. The real one asks Windows; tests use a fake.</summary>
+public interface IIdleProbe
+{
+    /// <summary>The time since the last keyboard or mouse input, or null if it can't be told.</summary>
+    TimeSpan? GetIdleTime();
+}

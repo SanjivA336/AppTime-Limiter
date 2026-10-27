@@ -17,7 +17,8 @@ public sealed record CloseRequest(Guid GroupId, string GroupName, IReadOnlyList<
 public sealed record Alert(string Title, string Message);
 
 /// <summary>What one group looks like right now. The window uses this for its "running" labels.</summary>
-public sealed record GroupStatus(Guid GroupId, bool IsRunning, CellState State);
+/// <param name="IsBudgetDraining">True when this tick actually charged time to the group's budget (a Limited cell, not paused, not used up, and the apps counted under the group's count mode).</param>
+public sealed record GroupStatus(Guid GroupId, bool IsRunning, CellState State, bool IsBudgetDraining = false);
 
 public sealed record TickResult(
     IReadOnlyList<CloseRequest> Closes,
@@ -67,9 +68,13 @@ public sealed class EnforcementEngine
     }
 
     public TickResult Tick(
-        AppSettings settings, DateTime now, IReadOnlyCollection<string> runningProcessNames, string? foregroundProcessName = null)
+        AppSettings settings, DateTime now, IReadOnlyCollection<string> runningProcessNames, string? foregroundProcessName = null,
+        TimeSpan? idleFor = null)
     {
-        var secondsToCredit = SecondsToCreditSinceLastTick(now);
+        // While the computer is idle (and the setting is on) nothing is counted: not toward the budgets, and not in the usage record.
+        // Limits are still enforced as usual. The time before the idle limit was reached has already been counted; it is not taken back.
+        var isIdle = settings.IdleDetectionEnabled && idleFor is TimeSpan quiet && quiet >= TimeSpan.FromMinutes(settings.IdleMinutes);
+        var secondsToCredit = isIdle ? 0 : SecondsToCreditSinceLastTick(now);
 
         // Usage and budgets are kept per "budget day", which starts at the reset time (midnight unless the user changed it).
         var today = BudgetDay.Of(now, settings.ResetMinutes);
@@ -86,6 +91,7 @@ public sealed class EnforcementEngine
             var isPaused = group.IsPausedAt(now);
             var cellState = isPaused ? CellState.Free : group.Schedule.GetState(now);
             var runningFromThisGroup = group.Processes.Where(runningNames.Contains).ToList();
+            var statusIndex = statuses.Count;
             statuses.Add(new GroupStatus(group.Id, runningFromThisGroup.Count > 0, cellState));
 
             if (runningFromThisGroup.Count == 0)
@@ -104,6 +110,14 @@ public sealed class EnforcementEngine
                 ? null
                 : runningFromThisGroup.FirstOrDefault(app => ProcessNames.Comparer.Equals(app, ProcessNames.Normalize(foregroundProcessName)));
             var closeReason = RecordUsageAndCheckLimits(group, cellState, secondsToCredit, today, dailyBudgetSeconds, runningFromThisGroup, inFrontApp, now);
+
+            // The card's bar only animates while the budget is really going down: a Limited cell (a pause makes it Free), some
+            // budget left, and time that counts under the group's mode (an app in the background doesn't, in "in front" mode).
+            var isSpendingBudget = closeReason is null
+                && cellState == CellState.Limited
+                && !isIdle
+                && (group.CountMode == CountMode.WhileRunning || inFrontApp is not null);
+            statuses[statusIndex] = statuses[statusIndex] with { IsBudgetDraining = isSpendingBudget };
             if (closeReason is CloseReason reason)
             {
                 if (ShouldCloseNow(group, reason, runningFromThisGroup, now, alerts))

@@ -148,7 +148,7 @@ public partial class App : Application
         }
 
         _tray = new TrayService(ShowWindow, RequestExit);
-        _runner = new EnforcementRunner(() => saved.Settings, new WindowsProcessController(), _tray, saved.Ledger);
+        _runner = new EnforcementRunner(() => saved.Settings, new WindowsProcessController(), _tray, saved.Ledger, new WindowsIdleProbe());
         _runner.Ticked += _viewModel!.OnTick;
 
         // A second launch asks us to show the window; that request arrives on a background thread.
@@ -246,7 +246,7 @@ public partial class App : Application
             var names = simulated.Split(';', StringSplitOptions.TrimEntries);
             var everyGroup = simulated.Equals("all", StringComparison.OrdinalIgnoreCase);
             var statuses = _viewModel!.Groups
-                .Select(g => new GroupStatus(g.Model.Id, everyGroup || names.Contains(g.Name, StringComparer.OrdinalIgnoreCase), g.CurrentState))
+                .Select(g => new GroupStatus(g.Model.Id, everyGroup || names.Contains(g.Name, StringComparer.OrdinalIgnoreCase), g.CurrentState, g.CurrentState == CellState.Limited && (everyGroup || names.Contains(g.Name, StringComparer.OrdinalIgnoreCase))))
                 .ToList();
             _viewModel.OnTick(new TickResult(Array.Empty<CloseRequest>(), Array.Empty<Alert>(), statuses));
         }

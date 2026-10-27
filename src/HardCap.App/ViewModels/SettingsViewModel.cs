@@ -184,6 +184,51 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
+    // ---- Away from the computer ----
+
+    /// <summary>When on, time isn't counted while there has been no keyboard or mouse input for <see cref="IdleMinutes"/>. When off, the computer is never asked.</summary>
+    public bool IdleDetectionEnabled
+    {
+        get => Settings.IdleDetectionEnabled;
+        set
+        {
+            if (value == Settings.IdleDetectionEnabled)
+            {
+                return;
+            }
+
+            Settings.IdleDetectionEnabled = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IdleSummary));
+            Changed();
+        }
+    }
+
+    /// <summary>Minutes without input before the computer counts as idle (1 to 60), as the number box's value.</summary>
+    public double IdleMinutes
+    {
+        get => Settings.IdleMinutes;
+        set
+        {
+            if (!double.IsNaN(value))
+            {
+                var minutes = Math.Clamp((int)Math.Round(value), 1, AppSettings.MaxIdleMinutes);
+                if (minutes != Settings.IdleMinutes)
+                {
+                    Settings.IdleMinutes = minutes;
+                    OnPropertyChanged(nameof(IdleSummary));
+                    Changed();
+                }
+            }
+
+            OnPropertyChanged(); // so the box shows the tidied number, even when it was out of range
+        }
+    }
+
+    public string IdleSummary => Settings.IdleDetectionEnabled
+        ? $"After {Settings.IdleMinutes} {(Settings.IdleMinutes == 1 ? "minute" : "minutes")} without keyboard or mouse input, time stops counting until you are back."
+        : "Off: time counts whenever a group's apps are running.";
+
     // ---- Backup ----
 
     public bool IsMessageOpen

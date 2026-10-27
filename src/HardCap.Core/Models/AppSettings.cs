@@ -8,9 +8,9 @@ public sealed class AppSettings
     /// <summary>
     /// 1 = one budget for every day. 2 = one budget for each day of the week, shared by all groups.
     /// 3 = every group has its own budget for each day. 4 = adds the reset time, the settings wait and open hours,
-    /// and each group's grace period and pause. Older files are upgraded automatically when they are loaded.
+    /// and each group's grace period and pause. 5 = each group's count mode. 6 = the idle setting. Older files are upgraded automatically when they are loaded.
     /// </summary>
-    public const int CurrentSchemaVersion = 5;
+    public const int CurrentSchemaVersion = 6;
 
     /// <summary>The longest wait that can be set for the settings and for quitting: five minutes (like a group's lock).</summary>
     public const int MaxWaitSeconds = AppGroup.MaxLockSeconds;
@@ -40,6 +40,20 @@ public sealed class AppSettings
 
     /// <summary>End of the open hours, in minutes after midnight. Default 9:00 AM. If earlier than the start, the window runs past midnight.</summary>
     public int OpenHoursEndMinutes { get; set; } = 9 * 60;
+
+    /// <summary>The most minutes of no input that can be set before the computer counts as idle.</summary>
+    public const int MaxIdleMinutes = 60;
+
+    public const int DefaultIdleMinutes = 5;
+
+    /// <summary>
+    /// When true, time is not counted (toward budgets or the usage record) while there has been no keyboard or mouse input for
+    /// <see cref="IdleMinutes"/>. When false (the default) the computer is never asked, and everything counts as before.
+    /// </summary>
+    public bool IdleDetectionEnabled { get; set; }
+
+    /// <summary>Minutes without keyboard or mouse input after which the computer counts as idle, from 1 to <see cref="MaxIdleMinutes"/>.</summary>
+    public int IdleMinutes { get; set; } = DefaultIdleMinutes;
 
     /// <summary>No default groups: a fresh install enforces nothing until the user adds some.</summary>
     public List<AppGroup> Groups { get; set; } = new();
@@ -72,5 +86,7 @@ public sealed class AppSettings
         OpenHoursEnabled = other.OpenHoursEnabled;
         OpenHoursStartMinutes = other.OpenHoursStartMinutes;
         OpenHoursEndMinutes = other.OpenHoursEndMinutes;
+        IdleDetectionEnabled = other.IdleDetectionEnabled;
+        IdleMinutes = other.IdleMinutes;
     }
 }

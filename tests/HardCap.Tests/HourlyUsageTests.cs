@@ -161,8 +161,9 @@ public class HourlyUsageTests
         var apps = DayReport().Hours[21].Groups.Single(g => g.Name == "Games").Apps;
 
         Assert.Equal(new[] { "game", "launcher" }, apps.Select(a => a.Name));
-        Assert.Equal(1200, apps[0].Seconds);
-        Assert.Equal(900, apps[1].Seconds);
+        Assert.Equal(1200 * 1200 / 2100.0, apps[0].Seconds, 3);   // the apps share the group's 1200 seconds in this hour
+        Assert.Equal(1200 * 900 / 2100.0, apps[1].Seconds, 3);
+        Assert.Equal(1200, apps.Sum(a => a.Seconds), 3);
     }
 
     [Fact]

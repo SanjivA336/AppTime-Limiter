@@ -357,6 +357,22 @@ internal static class EditorSelfTest
         Check("the reset time is explained", settingsPage.ResetSummary.Contains("4:00 AM"));
         Check("the group editor's note shows the reset time", new GroupEditorViewModel(main, card).BudgetNoteText.Contains("4:00 AM"));
 
+        // 17b. Away from the computer.
+        Check("the idle setting starts off, so the computer isn't asked", !settingsPage.IdleDetectionEnabled && !main.Settings.IdleDetectionEnabled);
+        Check("the off setting is explained", settingsPage.IdleSummary.StartsWith("Off"));
+        settingsPage.IdleDetectionEnabled = true;
+        Check("turning it on changes the setting", main.Settings.IdleDetectionEnabled);
+        settingsPage.IdleMinutes = 12;
+        Check("a typed number of minutes reaches the setting", main.Settings.IdleMinutes == 12 && settingsPage.IdleSummary.Contains("12 minutes"));
+        settingsPage.IdleMinutes = 0;
+        Check("too few minutes is tidied to 1", main.Settings.IdleMinutes == 1 && settingsPage.IdleMinutes == 1 && settingsPage.IdleSummary.Contains("1 minute "));
+        settingsPage.IdleMinutes = 500;
+        Check("too many minutes is tidied to the longest", main.Settings.IdleMinutes == AppSettings.MaxIdleMinutes);
+        settingsPage.IdleMinutes = double.NaN;
+        Check("clearing the box leaves the setting alone", main.Settings.IdleMinutes == AppSettings.MaxIdleMinutes);
+        settingsPage.IdleDetectionEnabled = false;
+        main.Settings.IdleMinutes = AppSettings.DefaultIdleMinutes;
+
         var backup = Path.Combine(Path.GetTempPath(), $"hardcap-selftest-{Guid.NewGuid():N}.json");
         try
         {

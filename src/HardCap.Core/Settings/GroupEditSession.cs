@@ -74,6 +74,8 @@ public sealed class GroupEditSession
             OpenHoursEnabled = _real.OpenHoursEnabled,
             OpenHoursStartMinutes = _real.OpenHoursStartMinutes,
             OpenHoursEndMinutes = _real.OpenHoursEndMinutes,
+            IdleDetectionEnabled = _real.IdleDetectionEnabled,
+            IdleMinutes = _real.IdleMinutes,
             Groups = groups,
         };
     }

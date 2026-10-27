@@ -95,13 +95,17 @@ public static class UsageAnalytics
             .Where(g => selectedGroupIds is null || selectedGroupIds.Contains(g.Id))
             .ToList();
 
+        // Time that overlapped (groups running together) is scaled down so no hour passes 60 minutes. It looks at every group, not
+        // only the selected ones, so a group's numbers are the same whichever groups are shown.
+        var overlap = new OverlapScaler(ledger, groups);
+
         var today = BudgetDay.Of(now, resetMinutes);
         var (start, end) = AnalyticsPeriod.Bounds(view, anchor ?? today);
         var isCurrent = today >= start && today <= end;
 
         var dates = Enumerable.Range(0, end.DayNumber - start.DayNumber + 1).Select(i => start.AddDays(i)).ToList();
         var days = dates
-            .Select(date => new DayUsageSlice(date, selected.Select(g => GroupOnDays(ledger, g, new[] { date })).ToList()))
+            .Select(date => new DayUsageSlice(date, selected.Select(g => GroupOnDays(ledger, g, new[] { date }, overlap)).ToList()))
             .ToList();
 
         // A day also gets its hours, in order from the hour the budget day begins.
@@ -109,10 +113,10 @@ public static class UsageAnalytics
             ? new List<HourUsageSlice>()
             : Enumerable.Range(0, 24)
                 .Select(i => (resetMinutes / 60 + i) % 24)
-                .Select(hour => new HourUsageSlice(hour, selected.Select(g => GroupInHour(ledger, g, start, hour)).ToList()))
+                .Select(hour => new HourUsageSlice(hour, selected.Select(g => GroupInHour(ledger, g, start, hour, overlap)).ToList()))
                 .ToList();
 
-        var groupUsage = Ranked(selected.Select(g => GroupOnDays(ledger, g, dates)));
+        var groupUsage = Ranked(selected.Select(g => GroupOnDays(ledger, g, dates, overlap)));
         var total = groupUsage.Sum(g => g.Seconds);
 
         // The days that count toward the average: up to today if the period isn't over yet, and not before tracking began
@@ -122,14 +126,14 @@ public static class UsageAnalytics
         var countedDays = Math.Max(1, lastCounted.DayNumber - firstCounted.DayNumber + 1);
         var dailyAverage = total / countedDays;
 
-        var (previousDaily, change) = CompareWithEarlierWeeks(ledger, selected, start, dailyAverage);
+        var (previousDaily, change) = CompareWithEarlierWeeks(ledger, selected, start, dailyAverage, overlap);
 
         var busiest = days.OrderByDescending(d => d.TotalSeconds).First();
-        var todaySeconds = selected.Sum(g => GroupOnDays(ledger, g, new[] { today }).Seconds);
+        var todaySeconds = selected.Sum(g => GroupOnDays(ledger, g, new[] { today }, overlap).Seconds);
 
         var weekStart = WeekStartOf(start);
         var weekDays = Enumerable.Range(0, 7).Select(i => weekStart.AddDays(i)).Where(d => d <= today).ToList();
-        var containingWeek = weekDays.Count == 0 ? 0 : selected.Sum(g => GroupOnDays(ledger, g, weekDays).Seconds);
+        var containingWeek = weekDays.Count == 0 ? 0 : selected.Sum(g => GroupOnDays(ledger, g, weekDays, overlap).Seconds);
 
         return new PeriodReport(
             view, start, end, today, isCurrent, days, hours, groupUsage, total, todaySeconds, dailyAverage, countedDays,
@@ -143,7 +147,7 @@ public static class UsageAnalytics
     /// watching), so a young install compares against what little history it has.
     /// </summary>
     private static (double? PreviousDaily, double? ChangePercent) CompareWithEarlierWeeks(
-        UsageLedger ledger, IReadOnlyList<AppGroup> selected, DateOnly periodStart, double dailyAverage)
+        UsageLedger ledger, IReadOnlyList<AppGroup> selected, DateOnly periodStart, double dailyAverage, OverlapScaler overlap)
     {
         if (ledger.FirstDay is not DateOnly firstTracked)
         {
@@ -159,7 +163,7 @@ public static class UsageAnalytics
 
         var dayCount = rangeEnd.DayNumber - rangeStart.DayNumber + 1;
         var allDays = Enumerable.Range(0, dayCount).Select(i => rangeStart.AddDays(i)).ToList();
-        var total = selected.Sum(g => GroupOnDays(ledger, g, allDays).Seconds);
+        var total = selected.Sum(g => GroupOnDays(ledger, g, allDays, overlap).Seconds);
         var previousDaily = total / dayCount;
 
         double? change = previousDaily > 0 ? (dailyAverage - previousDaily) / previousDaily * 100 : null;
@@ -167,7 +171,7 @@ public static class UsageAnalytics
     }
 
     /// <summary>One group's use over some days: its total, and the time of each app (largest first).</summary>
-    private static GroupUsage GroupOnDays(UsageLedger ledger, AppGroup group, IReadOnlyList<DateOnly> days)
+    private static GroupUsage GroupOnDays(UsageLedger ledger, AppGroup group, IReadOnlyList<DateOnly> days, OverlapScaler overlap)
     {
         double seconds = 0;
         var perApp = new Dictionary<string, double>(ProcessNames.Comparer);
@@ -175,11 +179,16 @@ public static class UsageAnalytics
         foreach (var day in days)
         {
             var usage = ledger.GetUsage(day, group.Id);
-            seconds += usage.LimitedSeconds + usage.FreeSeconds;
+            var daySeconds = overlap.DaySeconds(day, usage);
+            seconds += daySeconds;
 
-            foreach (var (app, appSeconds) in usage.Processes ?? new Dictionary<string, double>())
+            // Each app was credited the whole time it ran, so two apps together can add up to more than the group's own
+            // time. Show each app's share of the group's time instead, so the apps never add up to more than the group.
+            var appTimes = usage.Processes ?? new Dictionary<string, double>();
+            var share = ShareOf(daySeconds, appTimes.Values.Sum());
+            foreach (var (app, appSeconds) in appTimes)
             {
-                perApp[app] = perApp.GetValueOrDefault(app) + appSeconds;
+                perApp[app] = perApp.GetValueOrDefault(app) + appSeconds * share;
             }
         }
 
@@ -202,19 +211,101 @@ public static class UsageAnalytics
     /// One group's use in one hour of the clock on one day, with the time of each app in that hour. Days recorded before
     /// hours were kept have no hourly detail, so they read as zero here.
     /// </summary>
-    private static GroupUsage GroupInHour(UsageLedger ledger, AppGroup group, DateOnly day, int clockHour)
+    private static GroupUsage GroupInHour(UsageLedger ledger, AppGroup group, DateOnly day, int clockHour, OverlapScaler overlap)
     {
         var usage = ledger.GetUsage(day, group.Id);
-        var seconds = usage.Hourly is { Length: 24 } hourly ? hourly[clockHour] : 0;
+        var seconds = usage.Hourly is { Length: 24 } hourly ? hourly[clockHour] * overlap.HourScales(day)[clockHour] : 0;
 
-        var apps = (usage.AppHourly ?? new Dictionary<string, double[]>())
+        var inThisHour = (usage.AppHourly ?? new Dictionary<string, double[]>())
             .Where(pair => pair.Value.Length == 24 && pair.Value[clockHour] > 0)
-            .Select(pair => new AppUsage(pair.Key, pair.Value[clockHour]))
+            .ToList();
+        var share = ShareOf(seconds, inThisHour.Sum(pair => pair.Value[clockHour]));
+
+        var apps = inThisHour
+            .Select(pair => new AppUsage(pair.Key, pair.Value[clockHour] * share))
             .OrderByDescending(a => a.Seconds)
             .ThenBy(a => a.Name, ProcessNames.Comparer)
             .ToList();
 
         return new GroupUsage(group.Id, group.Name, group.Color, seconds, apps);
+    }
+
+    /// <summary>
+    /// The number to multiply each of some app times by so they add up to no more than <paramref name="groupSeconds"/>: 1 when
+    /// they already do, otherwise the group's time divided by their sum.
+    /// </summary>
+    private static double ShareOf(double groupSeconds, double appSecondsTotal) =>
+        appSecondsTotal > groupSeconds * 1.0001 && appSecondsTotal > 0 ? groupSeconds / appSecondsTotal : 1;
+
+    /// <summary>
+    /// Time can overlap: two groups running together are each credited the whole time, so one hour could hold more than 60
+    /// minutes and one day more than 24 hours. That is true to what each group's budget did, but it isn't "time on the
+    /// computer". This works out, for each hour, how much to scale every group down so the groups together never pass the
+    /// hour. It looks at every group, not only the ones on screen, so a group shows the same numbers whichever are selected.
+    /// Nothing recorded is changed; this only affects what the Analytics page shows.
+    /// </summary>
+    private sealed class OverlapScaler
+    {
+        private const double SecondsInHour = 3600;
+
+        private readonly UsageLedger _ledger;
+        private readonly IReadOnlyList<AppGroup> _groups;
+        private readonly Dictionary<DateOnly, double[]> _cache = new();
+
+        public OverlapScaler(UsageLedger ledger, IReadOnlyList<AppGroup> groups)
+        {
+            _ledger = ledger;
+            _groups = groups;
+        }
+
+        /// <summary>For each clock hour of the day, 1 normally, or less than 1 when the groups together passed an hour.</summary>
+        public double[] HourScales(DateOnly day)
+        {
+            if (_cache.TryGetValue(day, out var cached))
+            {
+                return cached;
+            }
+
+            var totals = new double[24];
+            foreach (var group in _groups)
+            {
+                if (_ledger.GetUsage(day, group.Id).Hourly is { Length: 24 } hourly)
+                {
+                    for (var hour = 0; hour < 24; hour++)
+                    {
+                        totals[hour] += hourly[hour];
+                    }
+                }
+            }
+
+            var scales = totals.Select(total => total > SecondsInHour * 1.0001 ? SecondsInHour / total : 1).ToArray();
+            _cache[day] = scales;
+            return scales;
+        }
+
+        /// <summary>
+        /// A group's time on one day with the overlap taken out. Only the time that has hourly detail is scaled; time without it
+        /// (older days, or the part of the first day before hours were kept) is left as recorded.
+        /// </summary>
+        public double DaySeconds(DateOnly day, DayUsage usage)
+        {
+            var recorded = usage.LimitedSeconds + usage.FreeSeconds;
+            if (usage.Hourly is not { Length: 24 } hourly)
+            {
+                return recorded;
+            }
+
+            var scales = HourScales(day);
+            var hourlyTotal = 0.0;
+            var hourlyScaled = 0.0;
+            for (var hour = 0; hour < 24; hour++)
+            {
+                hourlyTotal += hourly[hour];
+                hourlyScaled += hourly[hour] * scales[hour];
+            }
+
+            return Math.Max(0, recorded - hourlyTotal) + hourlyScaled;
+        }
     }
 
     /// <summary>Largest first; ties keep the groups in their usual order.</summary>

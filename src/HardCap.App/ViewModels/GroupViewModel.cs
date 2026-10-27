@@ -39,12 +39,10 @@ public sealed partial class GroupViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RunningSuffix))]
-    [NotifyPropertyChangedFor(nameof(IsBudgetDraining))]
     private bool _isRunning;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusBrush))]
-    [NotifyPropertyChangedFor(nameof(IsBudgetDraining))]
     private CellState _currentState;
 
     /// <summary>"Free", "Blocked", or "Limited · 1h 12m left".</summary>
@@ -90,10 +88,12 @@ public sealed partial class GroupViewModel : ObservableObject
     public ObservableCollection<AppChip> AppChips { get; } = new();
 
     /// <summary>
-    /// True while the daily budget is actually being spent: one of the group's apps is running during a Limited
-    /// cell. The card's bar shows moving stripes only then.
+    /// True while the daily budget is actually going down, as the engine reports it on each check: a Limited cell, not
+    /// paused, budget left, and time that counts under the group's count mode. The card's bar shows moving stripes and a
+    /// pulsing glow only then.
     /// </summary>
-    public bool IsBudgetDraining => IsRunning && CurrentState == CellState.Limited;
+    [ObservableProperty]
+    private bool _isBudgetDraining;
 
     /// <summary>" · Running" while one of the group's apps is open, otherwise nothing. It is added after the status text.</summary>
     public string RunningSuffix => IsRunning ? " · Running" : string.Empty;

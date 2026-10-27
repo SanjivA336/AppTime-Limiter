@@ -180,6 +180,7 @@ public sealed partial class MainViewModel : ObservableObject
             }
 
             group.IsRunning = status.IsRunning;
+            group.IsBudgetDraining = status.IsBudgetDraining;
 
             // A running app is the chance to save its icon, if we don't have it yet.
             if (status.IsRunning && Icons.CaptureIfRunning(group.Model.Processes))

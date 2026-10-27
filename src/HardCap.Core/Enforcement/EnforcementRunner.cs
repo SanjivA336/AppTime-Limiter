@@ -16,17 +16,19 @@ public sealed class EnforcementRunner
     private readonly IProcessController _processes;
     private readonly INotifier _notifier;
     private readonly UsageLedger _ledger;
+    private readonly IIdleProbe? _idle;
     private readonly EnforcementEngine _engine;
     private DateTime _lastSave = DateTime.MinValue;
     private bool _busy;
 
     public EnforcementRunner(
-        Func<AppSettings> getSettings, IProcessController processes, INotifier notifier, UsageLedger ledger)
+        Func<AppSettings> getSettings, IProcessController processes, INotifier notifier, UsageLedger ledger, IIdleProbe? idle = null)
     {
         _getSettings = getSettings;
         _processes = processes;
         _notifier = notifier;
         _ledger = ledger;
+        _idle = idle;
         _engine = new EnforcementEngine(ledger);
     }
 
@@ -45,7 +47,9 @@ public sealed class EnforcementRunner
         try
         {
             var settings = _getSettings();
-            var result = _engine.Tick(settings, now, _processes.GetRunningProcessNames(), _processes.GetForegroundProcessName());
+            // The idle check is only asked for when the setting is on: with it off, the computer is never asked.
+            var idleFor = settings.IdleDetectionEnabled ? _idle?.GetIdleTime() : null;
+            var result = _engine.Tick(settings, now, _processes.GetRunningProcessNames(), _processes.GetForegroundProcessName(), idleFor);
 
             foreach (var alert in result.Alerts)
             {
