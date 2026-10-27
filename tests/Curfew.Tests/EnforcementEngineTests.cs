@@ -248,17 +248,17 @@ public class EnforcementEngineTests
     }
 
     [Fact]
-    public void Usage_is_attributed_to_the_calendar_day_of_each_tick()
+    public void Usage_is_attributed_to_the_day_each_moment_fell_in()
     {
         var group = T.Group("Games", new[] { "game" }, CellState.Limited);
         var settings = T.Settings(600, group);
 
         _engine.Tick(settings, T.At(23, 59, 40), Running);
         _engine.Tick(settings, T.At(23, 59, 50), Running);
-        _engine.Tick(settings, T.At(24, 0, 10), Running); // 00:00:10 on Tuesday
+        _engine.Tick(settings, T.At(24, 0, 10), Running); // 00:00:10 on Tuesday: its 20 seconds are 10 before midnight and 10 after
 
-        Assert.Equal(10, _ledger.GetBudgetSecondsUsed(Day, group.Id));
-        Assert.Equal(20, _ledger.GetBudgetSecondsUsed(Day.AddDays(1), group.Id));
+        Assert.Equal(20, _ledger.GetBudgetSecondsUsed(Day, group.Id));
+        Assert.Equal(10, _ledger.GetBudgetSecondsUsed(Day.AddDays(1), group.Id));
     }
 
     // ---- Warnings ----

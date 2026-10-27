@@ -166,7 +166,9 @@ public sealed class EnforcementEngine
             var inFrontApp = foregroundProcessName is null
                 ? null
                 : runningFromThisGroup.FirstOrDefault(app => ProcessNames.Comparer.Equals(app, ProcessNames.Normalize(foregroundProcessName)));
-            var closeReason = RecordUsageAndCheckLimits(group, cellState, secondsToCredit, today, dailyBudgetSeconds, runningFromThisGroup, inFrontApp, now);
+            var closeReason = RecordUsageAndCheckLimits(
+                group, cellState, secondsToCredit, today, BudgetDay.StartOf(today, settings.ResetMinutes), dailyBudgetSeconds,
+                runningFromThisGroup, inFrontApp, now);
 
             // The card's bar only animates while the budget is really going down: a Limited cell (a pause makes it Free), some
             // budget left, and time that counts under the group's mode (an app in the background doesn't, in "in front" mode).
@@ -254,7 +256,7 @@ public sealed class EnforcementEngine
     /// running.
     /// </summary>
     private CloseReason? RecordUsageAndCheckLimits(
-        AppGroup group, CellState cellState, double secondsToCredit, DateOnly today, double dailyBudgetSeconds,
+        AppGroup group, CellState cellState, double secondsToCredit, DateOnly today, DateTime todayStart, double dailyBudgetSeconds,
         IReadOnlyList<string> runningApps,
         string? inFrontApp,
         DateTime now)
@@ -271,16 +273,36 @@ public sealed class EnforcementEngine
                     return CloseReason.BudgetUsedUp; // Already out of budget before this tick.
                 }
 
-                _ledger.Add(today, group.Id, secondsToCredit, countsTowardBudget: true, runningApps, endedAt: now, trackInFront: true, inFrontProcess: inFrontApp);
+                AddUsage(group.Id, today, todayStart, secondsToCredit, countsTowardBudget: true, runningApps, inFrontApp, now);
 
                 // This tick's time may have just used up the last of the budget.
                 var budgetNowEmpty = _ledger.GetBudgetSecondsUsed(today, group.Id, group.CountMode) >= dailyBudgetSeconds;
                 return budgetNowEmpty ? CloseReason.BudgetUsedUp : null;
 
             default: // Free: record it for stats, but it doesn't touch the budget.
-                _ledger.Add(today, group.Id, secondsToCredit, countsTowardBudget: false, runningApps, endedAt: now, trackInFront: true, inFrontProcess: inFrontApp);
+                AddUsage(group.Id, today, todayStart, secondsToCredit, countsTowardBudget: false, runningApps, inFrontApp, now);
                 return null;
         }
+    }
+
+    /// <summary>
+    /// Records a stretch of time that ended at <paramref name="now"/>. The check right after a new budget day begins covers a few
+    /// seconds from before it began; that part is filed under the previous day (and its hours), not under the new day, where it
+    /// would show up as time in the last hour of a day that hasn't got there yet.
+    /// </summary>
+    private void AddUsage(
+        Guid groupId, DateOnly today, DateTime todayStart, double seconds, bool countsTowardBudget,
+        IReadOnlyList<string> runningApps, string? inFrontApp, DateTime now)
+    {
+        var stretchStart = now.AddSeconds(-seconds);
+        if (stretchStart < todayStart)
+        {
+            var before = Math.Min(seconds, (todayStart - stretchStart).TotalSeconds);
+            _ledger.Add(today.AddDays(-1), groupId, before, countsTowardBudget, runningApps, endedAt: todayStart, trackInFront: true, inFrontProcess: inFrontApp);
+            seconds -= before;
+        }
+
+        _ledger.Add(today, groupId, seconds, countsTowardBudget, runningApps, endedAt: now, trackInFront: true, inFrontProcess: inFrontApp);
     }
 
     private void AddCloseNotice(List<Alert> alerts, AppGroup group, CloseReason reason, IReadOnlyList<string> runningApps, DateTime now)

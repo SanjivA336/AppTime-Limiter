@@ -27,6 +27,10 @@ public static class BudgetDay
     public static DateOnly Of(DateTime moment, int resetMinutes) =>
         DateOnly.FromDateTime(moment.AddMinutes(-resetMinutes));
 
+    /// <summary>The moment a budget day begins: midnight of its date plus the reset time.</summary>
+    public static DateTime StartOf(DateOnly day, int resetMinutes) =>
+        day.ToDateTime(TimeOnly.MinValue).AddMinutes(resetMinutes);
+
     /// <summary>Which weekday's budget applies at <paramref name="moment"/>.</summary>
     public static DayOfWeek DayOfWeekOf(DateTime moment, int resetMinutes) => Of(moment, resetMinutes).DayOfWeek;
 
